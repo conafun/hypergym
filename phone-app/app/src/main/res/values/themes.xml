@@ -1,0 +1,4 @@
+<resources>
+    <!-- Compose 接管全部 UI；仅需一个无 ActionBar 的浅色框架主题 -->
+    <style name="Theme.HyperGym" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

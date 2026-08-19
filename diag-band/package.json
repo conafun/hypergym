@@ -1,0 +1,11 @@
+{
+  "name": "diag-band",
+  "version": "1.0.0",
+  "description": "hand-to-phone diagnostic rpk",
+  "scripts": {
+    "release": "aiot release"
+  },
+  "devDependencies": {
+    "aiot-toolkit": "^2.0.5"
+  }
+}

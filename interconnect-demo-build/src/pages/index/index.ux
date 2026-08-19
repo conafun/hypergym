@@ -1,0 +1,911 @@
+<template>
+	<div class="column page">
+		<text class="back" @click="back">返回</text>
+		<text class="header">设备通信 interconnect</text>
+		<div class="column group">
+			<div class="type-list">
+				<text>send发送数据类型：</text>
+				<text
+					class="font-14 mr-10"
+					for="dataTypes"
+					style="color: {{ dataType === $item ? 'blue' : '#ccc' }}"
+					@click="chooseType('dataType', $item)"
+				>
+					{{ $item }}
+				</text>
+			</div>
+			<div class="type-list">
+				<text>异步接口参数格式：</text>
+				<text
+					class="font-14 mr-10"
+					for="apiTypes"
+					style="color: {{ apiType === $item ? 'blue' : '#ccc' }}"
+					@click="chooseType('apiType', $item)"
+				>
+					{{ $item }}
+				</text>
+			</div>
+			<input
+				type="button"
+				class="btn"
+				@click="handleCreateConn"
+				value="创建连接"
+			/>
+			<text>连接状态getReadyState：{{ statusNum }}</text>
+			<text class="header">1、getReadyState测试</text>
+			<input
+				type="button"
+				class="btn"
+				@click="handleGetReadyState"
+				value="获取状态-填写回调"
+			/>
+			<input
+				type="button"
+				class="btn"
+				@click="handleGetReadyStateNoParams"
+				value="获取状态-不填写回调"
+			/>
+			<input
+				type="button"
+				class="btn"
+				@click="handleGetReadyStateFail"
+				value="获取状态-参数名错误"
+			/>
+
+			<text class="header">2、send测试</text>
+			<input
+				type="button"
+				class="btn"
+				@click="handleSendMessage"
+				value="发送消息"
+			/>
+			<input
+				type="button"
+				class="btn"
+				@click="handleSendNoData"
+				value="无data发送"
+			/>
+			<input
+				type="button"
+				class="btn"
+				@click="handleSendErrorDataName"
+				value="data参数名错误"
+			/>
+			<input
+				type="button"
+				class="btn"
+				@click="handleSendMessageNoSuccess"
+				value="无success发送"
+			/>
+			<input
+				type="button"
+				class="btn"
+				@click="handleSendMessageNoFail"
+				value="无fail发送"
+			/>
+
+			<text class="header">3、getApkStatus测试</text>
+			<text>连接状态apkStatus：{{ apkStatus }}</text>
+			<input
+				type="button"
+				class="btn"
+				@click="handleGetApkStatus"
+				value="getApkStatus获取状态"
+			/>
+
+			<text class="header">4、diagnosis测试</text>
+			<div class="type-list">
+				<text>timeout值类型：</text>
+				<text
+					class="font-14 mr-10"
+					for="timeoutTypes"
+					style="color: {{ checkedTimeout.name === $item.name ? 'blue' : '#ccc' }}"
+					@click="choosetimeoutTypes($item)"
+				>
+					{{ $item.name }}
+				</text>
+			</div>
+			<text>连接状态diagnosis：{{ statusCode }}</text>
+			<input
+				type="button"
+				class="btn"
+				@click="handleDiagnosis"
+				value="连接诊断"
+			/>
+			<input
+				type="button"
+				class="btn"
+				@click="diagnosisNoTimeout"
+				value="连接诊断timeout不填"
+			/>
+			<input
+				type="button"
+				class="btn"
+				@click="diagnosisNoSuccess"
+				value="连接诊断success不填"
+			/>
+			<input
+				type="button"
+				class="btn"
+				@click="diagnosisNoFail"
+				value="连接诊断fail不填"
+			/>
+		</div>
+
+		<text class="header">5、参数值类型错误</text>
+		<input
+			type="button"
+			class="btn"
+			@click="handleGetReadyStateSuccessNotFunction"
+			value="getReadyState-success非Function类型"
+		/>
+		<input
+			type="button"
+			class="btn"
+			@click="handleGetReadyStateFailNotFunction"
+			value="getReadyState-fail非Function类型"
+		/>
+		<input
+			type="button"
+			class="btn"
+			@click="handleSendMessageErrorSuccess"
+			value="send-success非Function类型"
+		/>
+		<input
+			type="button"
+			class="btn"
+			@click="handleSendMessageErrorFail"
+			value="send--fail非Function类型"
+		/>
+		<input
+			type="button"
+			class="btn"
+			@click="diagnosisSuccessNotFunction"
+			value="diagnosis-success非Function类型"
+		/>
+		<input
+			type="button"
+			class="btn"
+			@click="diagnosisFailNotFunction"
+			value="diagnosis-fail非Function类型"
+		/>
+
+		<text class="header">6、 稳定性测试</text>
+		<input
+			type="button"
+			class="btn"
+			@click="handleStability"
+			value="执行1000次"
+		/>
+		<text>连接状态getReadyState：{{ statusNum }}</text>
+		<text>连接状态apkStatus：{{ apkStatus }}</text>
+		<text>连接状态diagnosis：{{ statusCode }}</text>
+		<text>执行次数：{{ resultCount }}</text>
+		<text class="header">7、 断开蓝牙测试</text>
+		<input type="button" class="btn" @click="refeshPage" value="跳转到本页面" />
+	</div>
+</template>
+
+<script>
+import router from "@system.router";
+import interconnect from "@system.interconnect";
+export default {
+	private: {
+		dataTypes: ["normal", "str", "list", "number", "undefined", "null"],
+		dataType: "normal",
+		timeoutTypes: [
+			{
+				name: "number",
+				value: 10000,
+			},
+			{
+				name: "str",
+				value: "test",
+			},
+			{
+				name: "list",
+				value: [1, 2, 3],
+			},
+			{
+				name: "boolean",
+				value: true,
+			},
+			{
+				name: "null",
+				value: null,
+			},
+		],
+		checkedTimeout: { name: "number", value: 10000 },
+		conn: null,
+		statusNum: "",
+		statusCode: "",
+		apkStatus: "",
+		apiTypes: ["promise", "callback"],
+		apiType: "callback",
+		resultCount: 0,
+	},
+	onShow() {
+		console.log("----------触发onShow----------");
+		this.getApkStatusConnecting();
+		this.diagnosisTimeout();
+	},
+	onReady() {
+		console.log("----------触发onReady----------");
+		this.getApkStatusConnecting();
+		this.diagnosisTimeout();
+		this.handleCreateConn();
+	},
+	back() {
+		router.back();
+	},
+	refeshPage() {
+		router.push({
+			uri: "interface/network/interconnect",
+		});
+	},
+	//稳定性测试
+	handleStability() {
+		this.apiType = "callback";
+		this.dataType = "normal";
+		this.statusCode = "";
+		this.checkedTimeout = { name: "number", value: 10000 };
+		let cnt = 1;
+		let timerid = setInterval(() => {
+			if (cnt <= 1000) {
+				this.statusNum = "";
+				this.apkStatus = "";
+				this.statusCode = "";
+				this.handleCreateConn();
+				this.handleGetReadyState();
+				this.handleGetApkStatus();
+				this.handleDiagnosis();
+				this.handleSendMessage();
+				console.log("执行第：" + cnt + "次");
+				this.resultCount = "执行第：" + cnt + "次";
+				cnt++;
+			} else {
+				clearInterval(timerid);
+			}
+		}, 500);
+		this.count = cnt;
+	},
+	choosetimeoutTypes(item) {
+		this.checkedTimeout = item;
+	},
+	chooseType(type, value) {
+		if (type === "apiType") {
+			this.apiType = value;
+		} else if (type === "dataType") {
+			this.dataType = value;
+		} else {
+			this.timeoutType = value;
+		}
+	},
+	onSwitchChange(e) {
+		this.isPromise = e.checked;
+	},
+	handleCreateConn() {
+		this.conn = interconnect.instance();
+		console.log("-------------创建连接----------------");
+		this.conn.onmessage = (res) => {
+			console.log("------------onmessage----------------");
+			console.log(res);
+			console.log(
+				`-----------------received message-------------------: ${res.data}`
+			);
+			this.statusCode = "收到:" + res.data;
+		};
+		this.conn.onopen = (res) => {
+			console.log(
+				`---------------------connection opened----------------res`,
+				res
+			);
+			this.statusCode = "onopen已触发";
+		};
+		this.conn.onclose = (res) => {
+			console.log("---------------onclose-------------------", res);
+			this.statusCode = "onclose code=" + res.code;
+		};
+		this.conn.onerror = (res) => {
+			console.log(
+				`-----------------connection error, errMsg = ${res.data}, errCode = ${res.code}--------------`
+			);
+			this.statusCode = "onerror code=" + res.code;
+		};
+	},
+	//连接中
+	getApkStatusConnecting() {
+		this.handleCreateConn();
+		this.apkStatus = this.conn.getApkStatus(); // 获取当下连接状态
+		console.log("连接状态：" + this.apkStatus);
+	},
+	getData() {
+		let data = {
+			time: new Date().getMilliseconds(),
+			str: "xxx",
+			num: "121",
+			obj: { str: "xxx", num: "121" },
+			list: [1, "2"],
+		};
+		if (this.dataType === "str") {
+			data = "interconnect data";
+		} else if (this.dataType === "list") {
+			data = [1, "xxxx"];
+		} else if (this.dataType === "number") {
+			data = 10;
+		} else if (this.dataType === "undefined") {
+			data = undefined;
+		} else if (this.dataType === "null") {
+			data = null;
+		}
+		return data;
+	},
+	handleGetReadyState() {
+		this.statusNum = "";
+		if (this.apiType === "promise") {
+			return this.conn
+				.getReadyState()
+				.then((res) => {
+					this.statusNum = res.data.status;
+					console.log(`getReadyState promise success, res: `, res);
+					if (res.data.status == 1) {
+						console.log(`连接成功, ${res.data.status}`);
+					} else if (res.data.status == 2) {
+						console.log(`连接失败, ${res.data.status}`);
+					}
+				})
+				.catch((res) => {
+					if (res && res.code && res.data) {
+						console.log(
+							`getReadyState promise fail, code: ${res.code} msg: ${res.data}`
+						);
+					} else {
+						console.log("getReadyState promise error", res);
+					}
+				})
+				.finally(() => {
+					console.log("getReadyState promise complete");
+				});
+		}
+		this.conn.getReadyState({
+			success: (res) => {
+				this.statusNum = res.status;
+				if (res.status == 1) {
+					console.log(`连接成功, ${res.status}`);
+				} else if (res.status == 2) {
+					console.log(`连接失败, ${res.status}`);
+				}
+			},
+			fail: (res, code) => {
+				console.log(`handling fail, code = ${code}`);
+			},
+		});
+	},
+	handleGetReadyStateNoParams() {
+		if (this.apiType === "promise") {
+			return this.conn
+				.getReadyState()
+				.then((res) => {
+					this.statusNum = res.data.status;
+					console.log(`getReadyState promise success, res: `, res);
+				})
+				.catch((err) => {
+					console.log("getReadyState promise error", (code = err.code));
+				});
+		}
+		this.conn.getReadyState();
+	},
+	handleGetReadyStateFail() {
+		this.conn.getReadyState({
+			success123: (res) => {
+				if (res.status == 1) {
+					console.log(`连接成功, ${res.status}`);
+				} else if (res.status == 2) {
+					console.log(`连接失败, ${res.status}`);
+				}
+			},
+			fail: (res, code) => {
+				console.log(`handling fail, code = ${code}`);
+			},
+		});
+	},
+	handleGetReadyStateSuccessNotFunction() {
+		this.conn.getReadyState({
+			success: "123",
+			fail: (res, code) => {
+				console.log(`handling fail, code = ${code}`);
+			},
+		});
+	},
+	handleGetReadyStateFailNotFunction() {
+		this.conn.getReadyState({
+			success: (res) => {
+				if (res.status == 1) {
+					console.log(`连接成功, ${res.status}`);
+				} else if (res.status == 2) {
+					console.log(`连接失败, ${res.status}`);
+				}
+			},
+			fail: "123",
+		});
+	},
+	handleSendErrorDataName() {
+		let data = this.getData();
+		if (this.apiType === "promise") {
+			return this.conn
+				.send({
+					datas: data,
+				})
+				.then(() => {
+					console.log(`send promise success`);
+				})
+				.catch((res) => {
+					if (res && res.code && res.data) {
+						console.log(
+							`send promise fail, code: ${res.code} msg: ${res.data}`
+						);
+					} else {
+						console.log("send promise error", res);
+					}
+				})
+				.finally(() => {
+					console.log("send promise complete");
+				});
+		}
+
+		this.conn.send({
+			datas: data,
+			success: () => {
+				console.log(`handling send success`);
+			},
+			fail: (res) => {
+				console.log(
+					`handling send fail, errMsg = ${res.data}, errCode = ${res.code}`
+				);
+			},
+		});
+	},
+	handleSendMessageErrorFail() {
+		let data = this.getData();
+		console.log("---------------发送消息---------------", data);
+		this.conn.send({
+			data: data,
+			fail: "fail",
+		});
+	},
+	handleSendMessageErrorSuccess() {
+		let data = this.getData();
+		console.log("---------------发送消息---------------", data);
+		this.conn.send({
+			data: data,
+			success: "success",
+			fail: (res, code) => {
+				console.log(`handling send fail, errMsg = ${res}, errCode = ${code}`);
+			},
+		});
+	},
+
+	handleSendNoData() {
+		if (this.apiType === "promise") {
+			return this.conn
+				.send()
+				.then(() => {
+					console.log(`send promise success`);
+				})
+				.catch((res) => {
+					if (res && res.code && res.data) {
+						console.log(
+							`send promise fail, code: ${res.code} msg: ${res.data}`
+						);
+					} else {
+						console.log("send promise error", res);
+					}
+				})
+				.finally(() => {
+					console.log("send promise complete");
+				});
+		}
+		this.conn.send({
+			success: () => {
+				console.log(`handling send success`);
+			},
+			fail: (res) => {
+				console.log(
+					`handling send fail, errMsg = ${res.data}, errCode = ${res.code}`
+				);
+			},
+		});
+	},
+	handleSendMessage() {
+		let data = this.getData();
+		console.log("---------------发送消息---------------", data);
+
+		if (this.apiType === "promise") {
+			return this.conn
+				.send({
+					data: data,
+				})
+				.then(() => {
+					console.log(`send promise success`);
+				})
+				.catch((res) => {
+					if (res && res.code && res.data) {
+						console.log(
+							`send promise fail, code: ${res.code} msg: ${res.data}`
+						);
+					} else {
+						console.log("send promise error", res);
+					}
+				})
+				.finally(() => {
+					console.log("send promise complete");
+				});
+		}
+
+		this.conn.send({
+			data: data,
+			success: () => {
+				console.log(`handling send success`);
+				this.statusCode = "发送成功✓";
+			},
+			fail: (data, code) => {
+				console.log("失败：" + JSON.stringify(data), code);
+				this.statusCode = "发送失败 code=" + code + " " + data;
+			},
+		});
+	},
+	handleSendMessageNoSuccess() {
+		let data = this.getData();
+		this.conn.send({
+			data: data,
+			fail: (res) => {
+				console.log(
+					`handling send fail, errMsg = ${res.data}, errCode = ${res.code}`
+				);
+			},
+		});
+	},
+	handleSendMessageNoFail() {
+		let data = this.getData();
+		this.conn.send({
+			data: data,
+			success: () => {
+				console.log(`handling send success`);
+			},
+		});
+	},
+	handleGetApkStatus() {
+		this.conn && (this.apkStatus = this.conn.getApkStatus());
+	},
+	diagnosisTimeout() {
+		if (this.apiType === "promise") {
+			return this.conn
+				.diagnosis({ timeout: 1 })
+				.then((res) => {
+					console.log(
+						`handling diagnosis success, data = ${JSON.stringify(res)}`
+					);
+					this.statusCode = res.data.status;
+				})
+				.catch((err) => {
+					this.statusCode = code;
+					console.log(
+						`handling diagnosis fail, code = ${code}`,
+						JSON.stringify(res)
+					);
+				});
+		}
+
+		this.conn.diagnosis({
+			timeout: 1,
+			success: (res) => {
+				console.log(
+					`handling diagnosis success, data = ${JSON.stringify(res)}`
+				);
+				this.statusCode = res.status;
+			},
+			fail: (res, code) => {
+				this.statusCode = code;
+				console.log(
+					`handling diagnosis fail, code = ${code}`,
+					JSON.stringify(res)
+				);
+			},
+		});
+	},
+	diagnosisNoTimeout() {
+		if (this.apiType === "promise") {
+			return this.conn
+				.diagnosis()
+				.then((res) => {
+					console.log(
+						`handling diagnosis success, data = ${JSON.stringify(res)}`
+					);
+					this.statusCode = res.data.status;
+				})
+				.catch((err) => {
+					this.statusCode = code;
+					console.log(
+						`handling diagnosis fail, code = ${code}`,
+						JSON.stringify(res)
+					);
+				});
+		}
+		this.conn.diagnosis({
+			success: (res) => {
+				console.log(
+					`handling diagnosis success, data = ${JSON.stringify(res)}`
+				);
+				this.statusCode = res.status;
+			},
+			fail: (res, code) => {
+				this.statusCode = code;
+				console.log(
+					`handling diagnosis fail, code = ${code}`,
+					JSON.stringify(res)
+				);
+			},
+		});
+	},
+	diagnosisNoSuccess() {
+		this.conn.diagnosis({
+			timeout: 10000,
+			fail: (res, code) => {
+				this.statusCode = code;
+				console.log(
+					`handling diagnosis fail, code = ${code}`,
+					JSON.stringify(res)
+				);
+			},
+		});
+	},
+	diagnosisNoFail() {
+		this.conn.diagnosis({
+			timeout: 1000,
+			success: (res) => {
+				console.log(
+					`handling diagnosis success, data = ${JSON.stringify(res)}`
+				);
+				this.statusCode = res.status;
+			},
+		});
+	},
+	diagnosisSuccessNotFunction() {
+		this.conn.diagnosis({
+			timeout: 10000,
+			success: "test",
+			fail: (res, code) => {
+				this.statusCode = code;
+				console.log(
+					`handling diagnosis fail, code = ${code}`,
+					JSON.stringify(res)
+				);
+			},
+		});
+	},
+	diagnosisFailNotFunction() {
+		this.conn.diagnosis({
+			timeout: 10000,
+			success: (res) => {
+				console.log(
+					`handling diagnosis success, data = ${JSON.stringify(res)}`
+				);
+				this.statusCode = res.status;
+			},
+			fail: "test",
+		});
+	},
+	handleDiagnosis() {
+		if (!this.conn) {
+			return console.log("inconnect does not init");
+		}
+		if (this.apiType === "promise") {
+			return this.conn
+				.diagnosis()
+				.then((res) => {
+					this.statusCode = res.data.status;
+					console.log(`diagnosis promise success, res: `, res);
+				})
+				.catch((res) => {
+					if (res && res.code && res.data) {
+						console.log(
+							`diagnosis promise fail, code: ${res.code} msg: ${res.data}`
+						);
+						this.statusCode = res.code;
+					} else {
+						console.log("diagnosis promise error", res);
+					}
+				})
+				.finally(() => {
+					console.log("diagnosis promise complete");
+				});
+		}
+
+		this.conn.diagnosis({
+			timeout: this.checkedTimeout.value,
+			success: (res) => {
+				console.log(
+					`handling diagnosis success, data = ${JSON.stringify(res)}`
+				);
+				this.statusCode = "diag=" + JSON.stringify(res);
+			},
+			fail: (data, code) => {
+				this.statusCode = "诊断失败 code=" + code + " " + data;
+				console.log(
+					`handling diagnosis fail, code = ${code}`,
+					JSON.stringify(data)
+				);
+			},
+		});
+	},
+};
+</script>
+
+<style>
+.page {
+	padding: 60px;
+	flex-direction: column;
+}
+
+.column {
+	flex-direction: column;
+}
+
+.row {
+	flex-direction: row;
+}
+
+.header {
+	font-weight: bold;
+	margin-bottom: 10px;
+	margin-top: 20px;
+	font-size: 30px;
+}
+
+.link {
+	color: #0099ff;
+	text-decoration: underline;
+}
+
+.link-ing {
+	color: orange;
+}
+
+.back {
+	text-align: center;
+	font-size: 30px;
+	color: #0099ff;
+	text-decoration: underline;
+}
+
+.bug {
+	color: #dd4731;
+}
+.com-yellow {
+	background-color: yellow;
+}
+.bg {
+	background-color: red;
+}
+
+.not-support {
+	color: gray;
+}
+
+.gray {
+	color: gray;
+}
+
+.box {
+	width: 200px;
+	height: 80px;
+	margin-bottom: 10px;
+	background-color: purple;
+}
+
+.group {
+	margin-bottom: 15px;
+}
+
+.label {
+	margin-top: 10px;
+}
+
+.border {
+	border: 1px solid purple;
+}
+
+.tips {
+	padding: 5px;
+	background-color: rgb(240, 228, 204);
+	color: rgb(230, 151, 4);
+	border-radius: 5px;
+	margin-top: 5px;
+	margin-bottom: 5px;
+}
+
+.code {
+	background-color: #f0f0f0;
+	border-radius: 5px;
+	border: 1px solid lightgray;
+	padding: 2px 4px;
+	font-size: 24px;
+	color: #000000;
+}
+
+.btn {
+	height: 60px;
+	width: 360px;
+	text-align: center;
+	border-radius: 5px;
+	/* margin-right: 60px; */
+	/* margin-left: 60px; */
+	margin-bottom: 30px;
+	color: #ffffff;
+	font-size: 30px;
+	background-color: #0faeff;
+}
+
+text {
+	font-size: 26px;
+}
+
+@media (shape: pill-shaped) {
+	.page {
+		padding: 60px 30px;
+		flex-direction: column;
+	}
+
+	.header {
+		font-size: 60px;
+	}
+
+	.back {
+		font-size: 48px;
+	}
+
+	.box {
+		width: 400px;
+		height: 160px;
+	}
+
+	.group {
+		margin-bottom: 30px;
+	}
+
+	.label {
+		margin-top: 20px;
+	}
+
+	.border {
+		border: 1px solid purple;
+	}
+
+	.tips {
+		margin-top: 15px;
+		margin-bottom: 15px;
+	}
+
+	.code {
+		padding: 4px 8px;
+		font-size: 48px;
+	}
+
+	.btn {
+		height: 100px;
+		width: 480px;
+		margin-bottom: 30px;
+		font-size: 54px;
+	}
+
+	text {
+		font-size: 48px;
+	}
+}
+.type-list {
+	flex-wrap: wrap;
+}
+.mr-10 {
+	margin-right: 10px;
+}
+</style>

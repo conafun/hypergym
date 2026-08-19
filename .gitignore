@@ -1,0 +1,33 @@
+# ===== 构建工具 / 本地缓存（本机专用，绝不上传）=====
+.research/
+
+# ===== Node =====
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# ===== Android / Gradle =====
+*.apk
+*.aab
+*.keystore
+*.jks
+local.properties
+.gradle/
+build/
+.idea/
+*.iml
+.cxx/
+captures/
+.externalNativeBuild/
+.kotlin/
+*.hprof
+
+# ===== 系统 / 临时 / 压缩包 =====
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.log
+*.tmp
+*.zip
+*.7z
+*.rar

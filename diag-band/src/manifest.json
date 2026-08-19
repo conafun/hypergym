@@ -1,0 +1,23 @@
+{
+  "package": "com.xiaomi.xms.wearable.demo",
+  "name": "diag-band",
+  "versionName": "2.0.0",
+  "versionCode": 99,
+  "minPlatformVersion": 1200,
+  "icon": "/common/logo.png",
+  "deviceTypeList": ["watch"],
+  "features": [
+    { "name": "system.router" },
+    { "name": "system.interconnect" }
+  ],
+  "config": {
+    "logLevel": "log",
+    "designWidth": 480
+  },
+  "router": {
+    "entry": "pages/index",
+    "pages": {
+      "pages/index": { "component": "index" }
+    }
+  }
+}

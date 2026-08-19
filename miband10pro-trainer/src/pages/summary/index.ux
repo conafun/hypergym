@@ -1,0 +1,124 @@
+<template>
+  <div class="page">
+    <div class="s3-empty" if="{{isEmpty}}">
+      <text class="s3-empty-text">暂无数据</text>
+    </div>
+    <div class="s3-content" if="{{hasContent}}">
+      <div class="s3-header">
+        <text class="s3-header-title">训练完成</text>
+        <text class="s3-header-date">{{dateStr}}</text>
+      </div>
+      <div class="s3-summary">
+        <div class="s3-stat">
+          <text class="s3-stat-val">{{exCount}}</text>
+          <text class="s3-stat-lbl">动作</text>
+        </div>
+        <div class="s3-stat">
+          <text class="s3-stat-val">{{totalSets}}</text>
+          <text class="s3-stat-lbl">总组数</text>
+        </div>
+        <div class="s3-stat">
+          <text class="s3-stat-val">{{totalVolume}}</text>
+          <text class="s3-stat-lbl">总容量kg</text>
+        </div>
+      </div>
+      <div class="s3-divider"></div>
+      <div class="s3-list">
+        <div class="s3-card" for="{{records}}">
+          <div class="s3-card-header">
+            <text class="s3-card-ex">{{$item.exercise}}</text>
+            <text class="s3-card-summary">{{$item.setsCount}}组 · {{$item.totalVol}}kg</text>
+          </div>
+          <div class="s3-card-set" for="{{$item.sets}}">
+            <text class="s3-card-set-num">#{{$item.set}}</text>
+            <text class="s3-card-set-weight">{{$item.reps}} 次</text>
+            <text class="s3-card-set-vol">{{$item.volume}} kg</text>
+          </div>
+        </div>
+      </div>
+      <div class="s3-bottom">
+        <div class="s3-btn-back" onclick="goBack">
+          <text class="s3-btn-back-text">返回主页</text>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style>
+  .page { width: 336px; height: 480px; background-color: #000000; display: flex; flex-direction: column; }
+  .s3-empty { width: 336px; height: 480px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .s3-empty-text { font-size: 15px; color: #444444; }
+  .s3-content { width: 336px; height: 480px; display: flex; flex-direction: column; }
+  .s3-header { width: 336px; height: 48px; display: flex; flex-direction: row; align-items: center; justify-content: space-between; padding: 0 24px; margin-top: 8px; }
+  .s3-header-title { font-size: 24px; color: #30d158; font-weight: 700; }
+  .s3-header-date { font-size: 16px; color: #555555; font-weight: 500; }
+  .s3-summary { width: 336px; height: 70px; display: flex; flex-direction: row; align-items: center; justify-content: center; }
+  .s3-stat { display: flex; flex-direction: column; align-items: center; margin: 0 16px; }
+  .s3-stat-val { font-size: 30px; color: #ffffff; font-weight: 700; }
+  .s3-stat-lbl { font-size: 13px; color: #666666; font-weight: 500; margin-top: 2px; }
+  .s3-divider { width: 300px; height: 1px; background-color: #1a1a1a; margin: 4px 18px; }
+  .s3-list { width: 336px; display: flex; flex-direction: column; flex-grow: 1; padding: 8px 14px; }
+  .s3-card { width: 308px; display: flex; flex-direction: column; background-color: #111111; border-radius: 14px; padding: 14px 18px; margin-bottom: 10px; }
+  .s3-card-header { width: 272px; display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .s3-card-ex { font-size: 24px; color: #ffffff; font-weight: 700; }
+  .s3-card-summary { font-size: 15px; color: #30d158; font-weight: 600; }
+  .s3-card-set { width: 272px; display: flex; flex-direction: row; align-items: center; justify-content: space-between; padding: 6px 0; border-top-width: 1px; border-top-style: solid; border-top-color: #1a1a1a; }
+  .s3-card-set-num { width: 40px; font-size: 14px; color: #666666; font-weight: 500; }
+  .s3-card-set-weight { flex-grow: 1; font-size: 16px; color: #cccccc; font-weight: 600; }
+  .s3-card-set-vol { font-size: 16px; color: #30d158; font-weight: 600; text-align: right; }
+  .s3-bottom { width: 336px; height: 60px; display: flex; align-items: center; justify-content: center; padding: 0 20px 14px 20px; }
+  .s3-btn-back { width: 296px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 14px; background-color: #111111; border-width: 2px; border-style: solid; border-color: #333333; }
+  .s3-btn-back-text { font-size: 18px; color: #cccccc; font-weight: 600; }
+</style>
+
+<script>
+import router from '@system.router'
+import fileIO from '../../common/file-io'
+
+export default {
+  data: {
+    dateStr: '',
+    records: [],
+    exCount: 0,
+    totalSets: 0,
+    totalVolume: 0,
+    isEmpty: true,
+    hasContent: false
+  },
+
+  onInit: function() {
+    var self = this
+    var passedDate = this.params && this.params.date ? this.params.date : ''
+    fileIO.readRecords(function(allRecords) {
+      var date = passedDate
+      if (!date) {
+        var dates = Object.keys(allRecords || {})
+        if (dates.length > 0) { dates.sort(function(a, b) { return b.localeCompare(a) }); date = dates[0] }
+      }
+      if (!date || !allRecords[date] || allRecords[date].length === 0) { self.isEmpty = true; self.hasContent = false; return }
+      self.dateStr = date
+      var dayRecords = allRecords[date]
+      var records = []
+      var totalSets = 0
+      var totalVolume = 0
+      for (var i = 0; i < dayRecords.length; i++) {
+        var r = dayRecords[i]; var setVol = 0; var sets = []
+        for (var j = 0; j < r.sets.length; j++) {
+          var s = r.sets[j]
+          sets.push({ set: s.set, reps: s.reps, volume: s.volume })
+          setVol += s.volume || 0
+        }
+        if (sets.length === 0) continue
+        totalSets += sets.length; totalVolume += setVol
+        records.push({ exercise: r.exercise, sets: sets, setsCount: sets.length, totalVol: setVol })
+      }
+      self.records = records; self.exCount = records.length
+      self.totalSets = totalSets; self.totalVolume = totalVolume
+      self.isEmpty = false; self.hasContent = true
+    })
+  },
+
+  goBack: function() { router.replace({ uri: '/pages/home' }) }
+}
+</script>

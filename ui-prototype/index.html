@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HyperGym · 数据展示 UI 原型</title>
+<style>
+  :root {
+    --primary: #E06040; --primary-deep: #C84E32; --primary-light: #F2A58D;
+    --primary-container: #FFE3D9; --blue: #7090E0; --green: #3E9E7B; --purple: #402070;
+    --bg: #F4F5F7; --card: #FFFFFF; --border: #E8EAEE;
+    --text: #2B2B2B; --text2: #7A7F87;
+    --shadow: 0 1px 2px rgba(16,24,40,.05), 0 6px 18px rgba(16,24,40,.06);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", Roboto, sans-serif; background: #E9EBEF; color: var(--text); display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 24px 12px; }
+  .stage { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .stage-note { font-size: 13px; color: #7A7F87; text-align: center; max-width: 430px; }
+  .phone { width: 390px; max-width: 100%; background: var(--bg); border-radius: 36px; overflow: hidden; position: relative; box-shadow: 0 20px 60px rgba(16,24,40,.18), 0 0 0 10px #1c1f26, 0 0 0 11px #33363d; }
+
+  /* 几何线条背景（白色卡片之间的灰底装饰） */
+  .deco { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+  .deco span { position: absolute; }
+  .deco .ring { border-radius: 50%; }
+  .deco .r1 { width: 300px; height: 300px; border: 2px solid rgba(224,96,64,.26); top: -90px; right: -110px; }
+  .deco .r2 { width: 200px; height: 200px; border: 1.5px solid rgba(112,144,224,.22); left: -70px; top: 230px; }
+  .deco .r3 { width: 120px; height: 120px; border: 1px solid rgba(224,96,64,.20); left: 26px; top: -34px; }
+  .deco .line { height: 1.5px; border-radius: 2px; transform-origin: left center; }
+  .deco .l1 { width: 120px; top: 130px; left: -14px; transform: rotate(24deg); background: linear-gradient(90deg, transparent, rgba(224,96,64,.34), transparent); }
+  .deco .l2 { width: 90px; top: 58px; right: 18px; transform: rotate(-16deg); height: 1px; background: linear-gradient(90deg, transparent, rgba(112,144,224,.28), transparent); }
+  .deco .thick { width: 70px; height: 3px; top: 330px; right: -22px; transform: rotate(-32deg); background: rgba(224,96,64,.22); border-radius: 2px; }
+  .deco .tri { width: 0; height: 0; border-left: 16px solid transparent; border-right: 16px solid transparent; border-bottom: 26px solid rgba(224,96,64,.16); top: 64px; left: 20px; transform: rotate(14deg); }
+  .deco .dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(112,144,224,.32); top: 210px; right: 40px; }
+
+  .statusbar { position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: center; padding: 12px 22px 6px; font-size: 13px; font-weight: 600; }
+  .statusbar .dots { letter-spacing: 1px; color: #9aa0a8; }
+  .app { position: relative; z-index: 1; padding: 4px 16px 16px; }
+  .screen { display: none; }
+  .screen.active { display: block; animation: fade .18s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .card { background: var(--card); border-radius: 18px; box-shadow: var(--shadow); padding: 16px; margin-bottom: 18px; }
+  .card-title { font-size: 15px; font-weight: 700; }
+  .card-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .card-head { display: flex; justify-content: space-between; align-items: center; }
+  .toggle { border: 0; background: #F1F2F4; color: var(--text2); font-size: 11px; font-weight: 700; border-radius: 999px; padding: 6px 11px; cursor: pointer; white-space: nowrap; }
+
+  .page-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 2px 14px; }
+  .page-head h1 { font-size: 22px; font-weight: 800; }
+  .page-head .sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .count-pill { background: var(--card); border-radius: 999px; box-shadow: var(--shadow); padding: 7px 12px; font-size: 12px; font-weight: 700; color: var(--primary); }
+
+  .week-strip { display: flex; gap: 6px; margin-top: 14px; }
+  .week-strip .day { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; }
+  .week-strip .cell { width: 100%; aspect-ratio: 1; border-radius: 11px; position: relative; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: var(--text); background: #EEF0F2; }
+  .week-strip .wd { font-size: 10px; color: var(--text2); }
+  .week-strip .cell.trained { color: #fff; }
+  .week-strip .cell.today { box-shadow: 0 0 0 2px var(--primary); }
+  .week-strip .cell.sel { box-shadow: 0 0 0 2px #ffffff; }
+
+  .month-grid { margin-top: 14px; }
+  .month-grid .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 6px; }
+  .month-grid .weekdays span { text-align: center; font-size: 10px; color: var(--text2); }
+  .month-grid .rows { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .mcell { aspect-ratio: 1; border-radius: 9px; position: relative; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--text); background: #EEF0F2; }
+  .mcell.trained { color: #fff; }
+  .mcell.blank { background: transparent; cursor: default; }
+  .mcell.future { background: transparent; color: #D5D8DD; cursor: default; }
+  .mcell.today { box-shadow: 0 0 0 2px var(--primary); }
+  .mcell.sel { box-shadow: 0 0 0 2px #ffffff; }
+
+  .day-ex { padding: 11px 0; border-top: 1px solid var(--border); }
+  .day-ex:first-child { border-top: 0; padding-top: 4px; }
+  .day-ex .ename { font-size: 14px; font-weight: 700; }
+  .day-ex .meta-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 7px; }
+  .day-ex .sets { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+  .day-ex .ewt { font-size: 12px; color: var(--text2); white-space: nowrap; }
+  .set-chip { font-size: 11px; color: #9A3412; background: var(--primary-container); border-radius: 6px; padding: 2px 6px; font-weight: 600; }
+  .day-ex .vol { font-size: 11px; color: var(--primary); font-weight: 700; }
+  .empty-day { text-align: center; color: var(--text2); font-size: 13px; padding: 18px 0 8px; }
+  .day-total { font-size: 20px; font-weight: 800; color: var(--primary); white-space: nowrap; }
+  .day-total small { font-size: 12px; font-weight: 700; }
+  .chart-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px; }
+  .chart-scroll::-webkit-scrollbar { height: 4px; }
+  .chart-scroll::-webkit-scrollbar-thumb { background: #E0E2E6; border-radius: 2px; }
+
+  .hero { background: linear-gradient(135deg, #E06040 0%, #F08A6B 55%, #C84E32 100%); border-radius: 22px; padding: 20px; color: #fff; position: relative; overflow: hidden; box-shadow: 0 10px 26px rgba(224,96,64,.35); margin-bottom: 18px; }
+  .hero::after { content: ""; position: absolute; right: -40px; top: -40px; width: 150px; height: 150px; background: rgba(255,255,255,.14); border-radius: 50%; }
+  .hero .label { font-size: 13px; opacity: .9; }
+  .hero .big { font-size: 44px; font-weight: 800; letter-spacing: -.5px; margin: 6px 0 2px; }
+  .hero .big small { font-size: 15px; font-weight: 500; opacity: .85; }
+  .hero .meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; }
+  .chip { background: rgba(255,255,255,.22); border-radius: 999px; padding: 3px 9px; font-size: 12px; font-weight: 700; }
+
+  .range { display: flex; background: var(--card); border-radius: 999px; padding: 4px; box-shadow: var(--shadow); margin-bottom: 18px; }
+  .range div { flex: 1; text-align: center; padding: 9px 0; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--text2); cursor: pointer; transition: all .15s ease; }
+  .range div.on { background: var(--primary); color: #fff; font-weight: 700; box-shadow: 0 4px 10px rgba(224,96,64,.35); }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+  .stat { background: var(--card); border-radius: 16px; box-shadow: var(--shadow); padding: 14px; }
+  .stat .name { font-size: 13px; color: var(--text); font-weight: 700; margin-top: 4px; }
+  .stat .val { font-size: 26px; font-weight: 800; margin-top: 2px; color: var(--primary); }
+
+  .topex { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .topex .rank { width: 18px; height: 18px; border-radius: 50%; background: #F1F2F4; color: var(--text2); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .topex .tname { width: 76px; font-size: 12px; font-weight: 600; }
+  .topex .ttrack { flex: 1; height: 8px; background: #EEF0F2; border-radius: 4px; overflow: hidden; }
+  .topex .tfill { height: 100%; border-radius: 4px; }
+  .topex .tval { width: 72px; font-size: 11px; color: var(--text2); text-align: right; }
+
+  .exlegend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .exchip { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text2); background: #F1F2F4; border-radius: 999px; padding: 3px 8px; }
+  .exchip i { width: 8px; height: 8px; border-radius: 50%; }
+  .mbar { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .mbar .mname { width: 30px; font-size: 12px; font-weight: 600; }
+  .mbar .track { flex: 1; height: 12px; background: #EEF0F2; border-radius: 6px; overflow: hidden; }
+  .mbar .fill { height: 100%; border-radius: 6px; }
+  .mbar .mval { width: 82px; font-size: 11px; color: var(--text2); text-align: right; }
+  .donut-wrap { display: flex; align-items: center; gap: 18px; margin-top: 12px; }
+  .donut { width: 132px; height: 132px; border-radius: 50%; position: relative; flex-shrink: 0; }
+  .donut::after { content: ""; position: absolute; inset: 24px; background: var(--card); border-radius: 50%; }
+  .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2; }
+  .donut-center .n { font-size: 18px; font-weight: 800; }
+  .donut-center .t { font-size: 11px; color: var(--text2); }
+  .legend-list { flex: 1; }
+  .legend-list .li { display: flex; align-items: center; gap: 7px; font-size: 12px; padding: 4px 0; }
+  .legend-list .li i { width: 10px; height: 10px; border-radius: 3px; }
+  .legend-list .li b { margin-left: auto; font-weight: 700; }
+  .legend-list .li span { color: var(--text2); font-size: 11px; }
+
+  .daycard { background: var(--card); border-radius: 18px; box-shadow: var(--shadow); padding: 14px; margin-bottom: 12px; }
+  .daycard .row1 { display: flex; align-items: center; gap: 8px; }
+  .daycard .date { font-size: 16px; font-weight: 800; }
+  .daycard .wk { font-size: 11px; color: var(--text2); background: #F1F2F4; border-radius: 6px; padding: 2px 6px; }
+  .pr { font-size: 11px; font-weight: 700; color: #B45309; background: #FFF3E0; border-radius: 6px; padding: 2px 6px; }
+  .daycard .tot { margin-left: auto; font-size: 13px; color: var(--primary); font-weight: 800; }
+
+  .chat { display: flex; flex-direction: column; gap: 10px; }
+  .bubble { max-width: 84%; padding: 10px 13px; border-radius: 16px; font-size: 13px; line-height: 1.55; }
+  .bubble.ai { background: var(--card); box-shadow: var(--shadow); border-bottom-left-radius: 5px; }
+  .bubble.me { background: var(--primary); color: #fff; align-self: flex-end; border-bottom-right-radius: 5px; }
+  .quick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .quick span { background: var(--card); box-shadow: var(--shadow); border-radius: 999px; padding: 8px 13px; font-size: 12px; font-weight: 600; }
+  .inputbar { display: flex; align-items: center; gap: 8px; background: var(--card); border-radius: 999px; box-shadow: var(--shadow); padding: 6px 6px 6px 16px; margin-top: 14px; }
+  .inputbar input { flex: 1; border: 0; outline: 0; font-size: 13px; background: transparent; }
+  .inputbar button { background: var(--primary); color: #fff; border: 0; border-radius: 999px; padding: 9px 16px; font-size: 13px; font-weight: 700; }
+
+  .diag-log { font-family: ui-monospace, Consolas, monospace; font-size: 11px; line-height: 1.55; color: var(--text); display: flex; flex-direction: column; gap: 3px; word-break: break-all; }
+  .btnrow { display: flex; gap: 8px; margin-bottom: 12px; }
+  .dbtn { flex: 1; background: var(--primary); color: #fff; border: 0; border-radius: 12px; padding: 12px 0; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .dbtn.ghost { background: var(--card); color: var(--text); box-shadow: var(--shadow); }
+  .tabbar { position: relative; z-index: 1; display: flex; background: var(--card); border-top: 1px solid var(--border); padding: 10px 8px 16px; gap: 4px; }
+  .tabbar .tab { flex: 1; text-align: center; font-size: 14px; font-weight: 600; color: var(--text2); padding: 10px 0; border-radius: 12px; cursor: pointer; position: relative; }
+  .tabbar .tab.on { color: var(--primary); font-weight: 800; }
+  .tabbar .tab.on::after { content: ""; position: absolute; left: 50%; bottom: 1px; transform: translateX(-50%); width: 5px; height: 5px; border-radius: 50%; background: var(--primary); }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="stage-note">👇 数据由 mock-data.jsonl（手环 JSON 协议格式）驱动：热力图可展开/点选、周/月/全部联动统计</div>
+  <div class="phone">
+    <div class="deco">
+      <span class="ring r1"></span>
+      <span class="ring r2"></span>
+      <span class="ring r3"></span>
+      <span class="line l1"></span>
+      <span class="line l2"></span>
+      <span class="line thick"></span>
+      <span class="tri"></span>
+      <span class="dot"></span>
+    </div>
+    <div class="statusbar"><span>9:41</span><span class="dots">●●●</span><span>100%</span></div>
+
+    <div class="app">
+      <!-- 屏1 数据总览 -->
+      <div class="screen active" id="scr-dash">
+        <div class="page-head">
+          <div><h1>训练数据</h1><div class="sub" id="dashSub"></div></div>
+          <div class="count-pill" id="monthPill"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">训练热力图</div>
+            <button class="toggle" id="heatToggle">展开整月 ▾</button>
+          </div>
+          <div class="week-strip" id="heatWeek"></div>
+          <div class="month-grid" id="heatMonth" style="display:none;"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title" id="dayTitle"></div>
+            <div class="day-total" id="dayTotal"></div>
+          </div>
+          <div id="dayContent"></div>
+        </div>
+
+        <div class="range" id="range"><div data-r="WEEK">周</div><div data-r="MONTH" class="on">月</div><div data-r="ALL">全部</div></div>
+        <div class="hero">
+          <div class="label" id="heroLabel"></div>
+          <div class="big" id="heroVal"></div>
+          <div class="meta"><span class="chip" id="heroDelta"></span><span id="heroSessions"></span></div>
+        </div>
+        <div class="grid2">
+          <div class="stat"><div class="name">训练次数</div><div class="val" id="statSessions"></div></div>
+          <div class="stat"><div class="name">总组数</div><div class="val" id="statSets"></div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div class="card-title">容量趋势</div><div class="day-total" id="chartTotal"></div></div>
+          <div class="chart-scroll"><svg id="chartSvg" viewBox="0 0 340 150" preserveAspectRatio="xMidYMid meet" style="display:block"></svg></div>
+        </div>
+      </div>
+
+      <!-- 屏2 肌群分布 -->
+      <div class="screen" id="scr-muscle">
+        <div class="page-head"><div><h1>肌群分布</h1><div class="sub">各部位训练容量占比</div></div></div>
+        <div class="range" id="muscleRange"><div data-r="WEEK">周</div><div data-r="MONTH" class="on">月</div></div>
+
+        <div class="card">
+          <div class="card-title">动作数据汇总</div>
+          <div class="chart-scroll"><svg id="muscleLine" viewBox="0 0 340 160" preserveAspectRatio="xMidYMid meet" style="display:block"></svg></div>
+          <div class="exlegend" id="exLegend"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title" id="musclePieTitle">本月肌群占比</div>
+          <div class="donut-wrap">
+            <div class="donut" id="donutMuscle"><div class="donut-center"><div class="n" id="donutTotal"></div><div class="t" id="donutLabel">本月总容量</div></div></div>
+            <div class="legend-list" id="legendMuscle"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">均衡度建议</div>
+          <div class="bubble ai" style="max-width:100%" id="advice"></div>
+        </div>
+      </div>
+
+      <!-- 屏3 训练日记 -->
+      <div class="screen" id="scr-diary">
+        <div class="page-head"><div><h1>训练日记</h1><div class="sub" id="diarySub"></div></div></div>
+        <div id="diaryAll"></div>
+      </div>
+
+      <!-- 屏4 诊断 -->
+      <div class="screen" id="scr-diag">
+        <div class="page-head"><div><h1>诊断</h1><div class="sub">手环联调 · 数据流日志</div></div></div>
+        <div class="card">
+          <div class="card-title" id="diagStatus" style="color:var(--green)">已连接: node-abc123 | 等待接收数据...</div>
+          <div class="card-sub" id="diagStorage" style="color:var(--green);margin-top:6px;">存储: SAF目录(HyperGym) | 已存 36 天 · 5 文件</div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="margin-bottom:8px;">日志（P/S 码）</div>
+          <div id="diagLog" class="diag-log"></div>
+        </div>
+        <div class="btnrow"><button class="dbtn" id="btnReconnect">重连</button><button class="dbtn" id="btnSend">测试发送</button></div>
+        <div class="btnrow"><button class="dbtn ghost" id="btnClear">清除</button><button class="dbtn ghost" id="btnFolder">数据目录</button><button class="dbtn ghost" id="btnRescan">重扫目录</button></div>
+      </div>
+    </div>
+
+    <div class="tabbar" id="tabbar">
+      <div class="tab on" data-t="dash">数据</div>
+      <div class="tab" data-t="muscle">肌群</div>
+      <div class="tab" data-t="diary">日记</div>
+      <div class="tab" data-t="diag">诊断</div>
+    </div>
+  </div>
+</div>
+
+<script src="mock-data.js"></script>
+<script>
+const TODAY = '2026-08-15';
+const MOCK = window.MOCK_JSONL.split('\n').filter(Boolean).map(l => JSON.parse(l));
+
+function parseISO(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function addDays(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
+function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function fmt(n){ return Math.round(n).toLocaleString('en-US'); }
+const WD_CN = ['周日','周一','周二','周三','周四','周五','周六'];
+const WD_SHORT = ['日','一','二','三','四','五','六'];
+function weekdayCn(s){ return WD_CN[parseISO(s).getDay()]; }
+
+const dayMap = new Map();
+MOCK.forEach(day => {
+  const exs = day.records.map(r => ({ name: r.exercise, weight: r.weight, reps: r.sets.map(s=>s.reps), vol: r.sets.reduce((a,s)=>a+s.volume,0) }));
+  dayMap.set(day.date, { vol: exs.reduce((a,e)=>a+e.vol,0), sets: day.records.reduce((a,r)=>a+r.sets.length,0), exs });
+});
+const sortedDates = [...dayMap.keys()].sort();
+const MAX_VOL = Math.max(...[...dayMap.values()].map(v=>v.vol), 1);
+
+const GROUPS = [
+  ['胸', '#EF5350', ['卧推','飞鸟','俯卧撑','夹胸','双杠臂屈伸','推胸','蝴蝶机']],
+  ['肩', '#FFA726', ['推举','侧平举','前平举','耸肩','颈后推','直立划船']],
+  ['背', '#42A5F5', ['划船','引体','下拉','直臂下压','面拉','挺身']],
+  ['腿', '#66BB6A', ['深蹲','腿举','硬拉','箭步','腿屈伸','腿弯举','提踵','臀桥','髋']],
+  ['臂', '#AB47BC', ['弯举','臂屈伸','锤式']],
+  ['核心', '#26C6DA', ['卷腹','平板','举腿','健腹','仰卧起坐','俄罗斯转体']],
+];
+function groupOf(name){ for (const [g,,kws] of GROUPS) if (kws.some(k => name.includes(k))) return g; return '其他'; }
+function groupColor(g){ const f = GROUPS.find(x=>x[0]===g); return f ? f[1] : '#90A4AE'; }
+function muscleDistFor(r) {
+  const start = iso(addDays(parseISO(TODAY), r === 'WEEK' ? -6 : -29));
+  const map = new Map();
+  MOCK.forEach(d => {
+    if (d.date < start || d.date > TODAY) return;
+    d.records.forEach(rec => {
+      const g = groupOf(rec.exercise);
+      const v = rec.sets.reduce((a,s)=>a+s.volume,0);
+      map.set(g, (map.get(g)||0) + v);
+    });
+  });
+  return [...map.entries()].sort((a,b)=>b[1]-a[1]).map(([g,v])=>({ name:g, vol:v, color:groupColor(g) }));
+}
+
+function sumRange(startIso, endIso) {
+  let vol=0, sessions=0, sets=0; const exs=new Set();
+  for (const d of sortedDates) {
+    if (d < startIso || d > endIso) continue;
+    const v = dayMap.get(d); vol += v.vol; sessions++; sets += v.sets;
+    v.exs.forEach(e => exs.add(e.name));
+  }
+  return { vol, sessions, sets, distinct: exs.size };
+}
+const RANGES = { WEEK:{label:'本周总容量',start:-6,prevStart:-13,prevEnd:-7}, MONTH:{label:'近30天总容量',start:-29,prevStart:-59,prevEnd:-30}, ALL:{label:'累计总容量',start:null,prevStart:null,prevEnd:null} };
+function statsFor(r) {
+  const cfg = RANGES[r];
+  if (r === 'ALL') { const all = sumRange('0000-00-00','9999-99-99'); return { ...all, avg: all.sessions?all.vol/all.sessions:0, delta: null }; }
+  const cur = sumRange(iso(addDays(parseISO(TODAY), cfg.start)), TODAY);
+  const prev = sumRange(iso(addDays(parseISO(TODAY), cfg.prevStart)), iso(addDays(parseISO(TODAY), cfg.prevEnd)));
+  const delta = prev.vol > 0 ? (cur.vol - prev.vol) / prev.vol : null;
+  return { ...cur, avg: cur.sessions?cur.vol/cur.sessions:0, delta };
+}
+
+function seriesFor(r) {
+  if (r === 'ALL') {
+    // 全部：每个月容量总和（5月/6月/7月/8月…）
+    const mo = new Map();
+    sortedDates.forEach(d => { const key = d.slice(0, 7); mo.set(key, (mo.get(key)||0)+dayMap.get(d).vol); });
+    return [...mo.entries()].sort((a,b)=>a[0]<b[0]?-1:1).map(([k,v])=>({label:(parseInt(k.slice(5),10))+'月', vol:v}));
+  }
+  // 周/月：按天展示（每天一根柱子），月=近30天、周=近7天，横向滑动浏览
+  const n = r === 'WEEK' ? 7 : 30;
+  const arr = [];
+  for (let i=n-1;i>=0;i--) { const d = iso(addDays(parseISO(TODAY), -i)); arr.push({ label: d.slice(5), vol: dayMap.get(d)?.vol||0 }); }
+  return arr;
+}
+function drawBarChart(series) {
+  const svg = document.getElementById('chartSvg');
+  const H = 150, L = 8, R = 8, T = 20, B = 24, minSlot = 34;
+  const n = series.length;
+  const W = Math.max(340, L + R + n * minSlot);
+  const iw = W - L - R, ih = H - T - B;
+  const max = Math.max(...series.map(s=>s.vol), 1);
+  const slot = iw / n, bw = Math.min(26, slot * 0.45);
+  let bars = '', vals = '';
+  series.forEach((s, i) => {
+    const x = L + i * slot + slot / 2;
+    const h = (s.vol / max) * ih;
+    const y = T + ih - h;
+    bars += `<rect x="${(x-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(h, s.vol>0?2:0).toFixed(1)}" rx="${Math.min(4,bw/2).toFixed(1)}" fill="#E06040" opacity="${(0.45+0.55*(s.vol/max)).toFixed(2)}"/>`;
+    if (s.vol > 0) vals += `<text x="${x.toFixed(1)}" y="${(y-4).toFixed(1)}" font-size="9" font-weight="700" fill="#E06040" text-anchor="middle">${fmt(s.vol)}</text>`;
+  });
+  const step = Math.max(1, Math.round(n / 6));
+  let xlabels = '';
+  series.forEach((s, i) => {
+    if (i % step === 0 || i === n - 1) {
+      const x = L + i * slot + slot / 2;
+      xlabels += `<text x="${x.toFixed(1)}" y="${H-6}" font-size="9" fill="#7A7F87" text-anchor="middle">${s.label}</text>`;
+    }
+  });
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.style.width = W + 'px';
+  svg.style.maxWidth = 'none';
+  svg.innerHTML = bars + vals + xlabels;
+}
+let selected = sortedDates[sortedDates.length-1], expanded = false;
+function intensity(d) { const v = dayMap.get(d); return v ? 0.35 + 0.65*(v.vol/MAX_VOL) : 0; }
+function renderWeek() {
+  const wrap = document.getElementById('heatWeek'); let html='';
+  for (let i=6;i>=0;i--) { const d=iso(addDays(parseISO(TODAY),-i)); const trained=dayMap.has(d); const bg=trained?`background:rgba(224,96,64,${intensity(d)})`:''; const cls=['cell',trained?'trained':'',d===TODAY?'today':'',d===selected?'sel':''].join(' '); html += `<div class="day" data-d="${d}"><div class="${cls}" style="${bg}">${d.slice(8)}</div><div class="wd">${WD_SHORT[parseISO(d).getDay()]}</div></div>`; }
+  wrap.innerHTML = html;
+}
+function renderMonth() {
+  const t = parseISO(TODAY); const first = new Date(t.getFullYear(), t.getMonth(), 1);
+  const firstMonIdx = (first.getDay()+6)%7; const total = new Date(t.getFullYear(), t.getMonth()+1, 0).getDate();
+  const wrap = document.getElementById('heatMonth');
+  let html = `<div class="weekdays">${WD_SHORT.slice(1).concat(WD_SHORT[0]).map(w=>`<span>${w}</span>`).join('')}</div><div class="rows">`;
+  for (let i=0;i<firstMonIdx;i++) html += `<div class="mcell blank"></div>`;
+  for (let d=1; d<=total; d++) { const ds = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; if (ds>TODAY){ html += `<div class="mcell future">${d}</div>`; continue; } const trained=dayMap.has(ds); const bg=trained?`background:rgba(224,96,64,${intensity(ds)})`:''; const cls=['mcell',trained?'trained':'',ds===TODAY?'today':'',ds===selected?'sel':''].join(' '); html += `<div class="${cls}" data-d="${ds}" style="${bg}">${d}</div>`; }
+  wrap.innerHTML = html + '</div>';
+}
+function renderDay(d) {
+  document.getElementById('dayTitle').textContent = (d===TODAY?'今天':d) + ' · ' + weekdayCn(d);
+  const v = dayMap.get(d);
+  document.getElementById('dayTotal').innerHTML = v ? fmt(v.vol) + ' <small>kg</small>' : '—';
+  const box = document.getElementById('dayContent');
+  if (!v) { box.innerHTML = `<div class="empty-day">无训练记录</div>`; return; }
+  box.innerHTML = v.exs.map(e => `<div class="day-ex"><div class="ename">${e.name}</div><div class="meta-row"><span class="sets">${e.reps.map(r=>`<span class="set-chip">${r}次</span>`).join('')}<span class="vol">容量 ${fmt(e.vol)} kg</span></span><span class="ewt">${e.weight}kg × ${e.reps.length}组</span></div></div>`).join('');
+}
+function selectDay(e){ const el = e.target.closest('[data-d]'); if (!el || el.dataset.d > TODAY) return; selected = el.dataset.d; renderWeek(); renderMonth(); renderDay(selected); }
+function refreshHeat(){ renderWeek(); renderMonth(); renderDay(selected); }
+
+function applyRange(r) {
+  const s = statsFor(r);
+  document.getElementById('heroLabel').textContent = RANGES[r].label;
+  document.getElementById('heroVal').innerHTML = fmt(s.vol) + ' <small>kg</small>';
+  document.getElementById('heroDelta').textContent = s.delta == null ? '—' : (s.delta>=0?'↑':'↓') + Math.abs(Math.round(s.delta*100)) + '% vs 上期';
+  document.getElementById('heroSessions').textContent = s.sessions + ' 次训练';
+  document.getElementById('statSessions').textContent = s.sessions + ' 次';
+  document.getElementById('statSets').textContent = s.sets + ' 组';
+  document.getElementById('chartTotal').innerHTML = fmt(s.vol) + ' <small>kg</small>';
+  drawBarChart(seriesFor(r));
+  document.querySelectorAll('#range div').forEach(x => x.classList.toggle('on', x.dataset.r === r));
+}
+
+const EX_COLORS = ['#E06040','#7090E0','#3E9E7B','#FFA726','#AB47BC','#26C6DA','#EF5350','#66BB6A','#8D6E63','#5C6BC0','#EC407A','#7CB342'];
+const exColorMap = new Map();
+function exColor(name) { if (!exColorMap.has(name)) exColorMap.set(name, EX_COLORS[exColorMap.size % EX_COLORS.length]); return exColorMap.get(name); }
+function exerciseBarsData(r) {
+  const start = iso(addDays(parseISO(TODAY), r === 'WEEK' ? -6 : -29));
+  const days = [];
+  for (const d of sortedDates) {
+    if (d < start || d > TODAY) continue;
+    const v = dayMap.get(d);
+    days.push({ date: d, exs: v.exs.map(e => ({ name: e.name, vol: e.vol })) });
+  }
+  return days;
+}
+function drawExerciseBars(days) {
+  const svg = document.getElementById('muscleLine');
+  const H = 170, L = 8, R = 8, T = 22, B = 24, groupGap = 26, barGap = 3, barW = 18;
+  const maxBars = Math.max(...days.map(d=>d.exs.length), 1);
+  const groupW = maxBars * barW + (maxBars - 1) * barGap + groupGap;
+  const W = Math.max(340, L + R + days.length * groupW);
+  const ih = H - T - B;
+  const maxVol = Math.max(...days.flatMap(d=>d.exs.map(e=>e.vol)), 1);
+  let g = '';
+  for (let k=0;k<=3;k++){ const y=T+ih*k/3; g += `<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}" stroke="#EFF1F3" stroke-width="1"/>`; }
+  let bars = '', vals = '', labels = '';
+  days.forEach((d, gi) => {
+    const gx = L + gi * groupW;
+    const n = d.exs.length;
+    const totalArea = n * barW + (n - 1) * barGap;
+    const startX = gx + (groupW - groupGap - totalArea) / 2;
+    d.exs.forEach((e, bi) => {
+      const x = startX + bi * (barW + barGap);
+      const h = (e.vol / maxVol) * ih;
+      const y = T + ih - h;
+      bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${Math.max(h,1).toFixed(1)}" rx="3" fill="${exColor(e.name)}"/>`;
+      vals += `<text x="${(x + barW/2).toFixed(1)}" y="${(y-3).toFixed(1)}" font-size="7" fill="#6B7280" text-anchor="middle">${Math.round(e.vol)}</text>`;
+    });
+    labels += `<text x="${(gx + (groupW - groupGap)/2).toFixed(1)}" y="${H-6}" font-size="9" fill="#7A7F87" text-anchor="middle">${d.date.slice(5)}</text>`;
+  });
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.style.width = W + 'px';
+  svg.style.maxWidth = 'none';
+  svg.innerHTML = g + bars + vals + labels;
+}
+function renderMuscle(r) {
+  const dist = muscleDistFor(r);
+  const days = exerciseBarsData(r);
+  drawExerciseBars(days);
+  const exNames = [];
+  days.forEach(d => d.exs.forEach(e => { if (!exNames.includes(e.name)) exNames.push(e.name); }));
+  document.getElementById('exLegend').innerHTML = exNames.map(n=>`<span class="exchip"><i style="background:${exColor(n)}"></i>${n}</span>`).join('');
+  const total = dist.reduce((a,m)=>a+m.vol,0);
+  document.getElementById('musclePieTitle').textContent = r==='WEEK' ? '本周肌群占比' : '本月肌群占比';
+  document.getElementById('donutLabel').textContent = r==='WEEK' ? '本周总容量' : '本月总容量';
+  document.getElementById('donutTotal').textContent = fmt(total);
+  let acc=0, seg='';
+  dist.forEach(m => { seg += `${m.color} ${acc/total*360}deg ${(acc+m.vol)/total*360}deg,`; acc += m.vol; });
+  document.getElementById('donutMuscle').style.background = `conic-gradient(${seg.slice(0,-1)})`;
+  document.getElementById('legendMuscle').innerHTML = dist.map(m => `<div class="li"><i style="background:${m.color}"></i>${m.name}<span>${(m.vol/total*100).toFixed(1)}%</span><b>${fmt(m.vol)} kg</b></div>`).join('');
+  const chest = dist.find(m=>m.name==='胸')?.vol||0, back = dist.find(m=>m.name==='背')?.vol||0;
+  const period = r==='WEEK' ? '本周' : '本月';
+  document.getElementById('advice').innerHTML = chest > back*1.5 ? `${period}「胸」(${fmt(chest)} kg)明显多于「背」(${fmt(back)} kg)，推拉比 ${(chest/Math.max(back,1)).toFixed(1)}:1，建议下次安排划船或引体向上，平衡推拉。` : `${period}「胸」(${fmt(chest)} kg)与「背」(${fmt(back)} kg)发展较均衡，保持当前节奏即可。`;
+}
+function switchMuscleRange(r) {
+  document.querySelectorAll('#muscleRange div').forEach(x => x.classList.toggle('on', x.dataset.r === r));
+  renderMuscle(r);
+}
+
+function prDates() {
+  const best = new Map(), prs = new Set();
+  for (const d of sortedDates) { const day = dayMap.get(d); day.exs.forEach(e => { const b = best.get(e.name); if (b != null && e.weight > b) prs.add(d); if (b == null || e.weight > b) best.set(e.name, e.weight); }); }
+  return prs;
+}
+function renderDiary() {
+  const prs = prDates();
+  document.getElementById('diarySub').textContent = `${sortedDates.length} 天训练记录`;
+  document.getElementById('diaryAll').innerHTML = [...sortedDates].reverse().map(d => {
+    const v = dayMap.get(d);
+    const exs = v.exs.map(e => `<div class="day-ex"><div class="ename">${e.name}</div><div class="meta-row"><span class="sets">${e.reps.map(r=>`<span class="set-chip">${r}次</span>`).join('')}<span class="vol">容量 ${fmt(e.vol)} kg</span></span><span class="ewt">${e.weight}kg × ${e.reps.length}组</span></div></div>`).join('');
+    return `<div class="daycard"><div class="row1"><span class="date">${d}</span><span class="wk">${weekdayCn(d)}</span>${prs.has(d)?'<span class="pr">🏆 PR</span>':''}<span class="tot">${fmt(v.vol)} kg</span></div>${exs}</div>`;
+  }).join('');
+}
+
+function renderHeader() {
+  const aug = sortedDates.filter(d=>d.startsWith('2026-08')).length;
+  document.getElementById('dashSub').textContent = `2026年8月 · 本月已练 ${aug} 天`;
+  document.getElementById('monthPill').textContent = '8 月';
+}
+
+const diagLogLines = [];
+function dlog(code, txt) {
+  const ts = new Date().toTimeString().slice(0,8);
+  diagLogLines.unshift(`[${ts}] ${code} ${txt}`);
+  if (diagLogLines.length > 40) diagLogLines.pop();
+  document.getElementById('diagLog').innerHTML = diagLogLines.map(l=>`<div>${l}</div>`).join('');
+}
+document.getElementById('btnReconnect').addEventListener('click', ()=>{ dlog('P03','服务已连接'); dlog('P10','监听注册成功，等待手环数据...'); document.getElementById('diagStatus').textContent='已连接: node-abc123 | 等待接收数据...'; });
+document.getElementById('btnSend').addEventListener('click', ()=>{ dlog('P15','测试发送成功（看手环 B09/B10）'); });
+document.getElementById('btnClear').addEventListener('click', ()=>{ diagLogLines.length=0; document.getElementById('diagLog').innerHTML=''; });
+document.getElementById('btnFolder').addEventListener('click', ()=>{ dlog('S04','打开数据目录选择...'); });
+document.getElementById('btnRescan').addEventListener('click', ()=>{ dlog('S02r','目录重扫: 36 天 / 5 文件'); });
+
+document.getElementById('tabbar').addEventListener('click', e => { const t = e.target.closest('.tab'); if (t) { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById('scr-'+t.dataset.t).classList.add('active'); document.querySelectorAll('#tabbar .tab').forEach(x=>x.classList.toggle('on', x.dataset.t===t)); } });
+document.getElementById('range').addEventListener('click', e => { const r = e.target.closest('div')?.dataset.r; if (r) applyRange(r); });
+document.getElementById('heatToggle').addEventListener('click', () => {
+  expanded = !expanded;
+  document.getElementById('heatMonth').style.display = expanded ? 'block' : 'none';
+  document.getElementById('heatWeek').style.display = expanded ? 'none' : 'flex';
+  document.getElementById('heatToggle').textContent = expanded ? '收起 ▴' : '展开整月 ▾';
+});
+document.getElementById('heatWeek').addEventListener('click', selectDay);
+document.getElementById('heatMonth').addEventListener('click', selectDay);
+
+document.getElementById('muscleRange').addEventListener('click', e => { const r = e.target.closest('div')?.dataset.r; if (r) switchMuscleRange(r); });
+
+renderHeader();
+refreshHeat();
+applyRange('MONTH');
+switchMuscleRange('MONTH');
+renderDiary();
+
+dlog('P01','SDK 初始化完成');
+dlog('P02','注册服务连接监听...');
+dlog('S01','存储后端: SAF目录(HyperGym)');
+dlog('S02','已载入 36 天训练记录（5 个文件）');
+</script>
+</body>
+</html>

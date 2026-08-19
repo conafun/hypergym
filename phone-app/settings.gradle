@@ -1,0 +1,2 @@
+rootProject.name = "HyperGym-Phone"
+include ':app'

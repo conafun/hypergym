@@ -1,0 +1,733 @@
+<template>
+  <div class="page">
+    <swiper id="swiper" index="{{swiperPage}}" loop="{{false}}" onchange="onSwiperChange">
+
+      <!-- ===== 屏0 计划 ===== -->
+      <div class="s1">
+        <div class="plan-ex-area" ontouchstart="onExTouchStart" ontouchmove="onExTouchMove" ontouchend="onExTouchEnd">
+          <text class="plan-ex-above">{{exAbove}}</text>
+          <text class="plan-ex-current">{{exCurrent}}</text>
+          <text class="plan-ex-below">{{exBelow}}</text>
+        </div>
+        <div class="plan-wt-area">
+          <div class="plan-wt-btn" onclick="prevWt"><text class="plan-wt-arr">‹</text></div>
+          <text class="plan-wt-val" onlongpress="exitApp">{{wtCurrent}}</text>
+          <div class="plan-wt-btn" onclick="nextWt"><text class="plan-wt-arr">›</text></div>
+        </div>
+        <div class="plan-spacer"></div>
+        <div class="plan-buttons">
+          <div class="plan-btn-only" onclick="addToPlan">
+            <text class="plan-btn-text">增加</text>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ===== 屏1 记录列表 ===== -->
+      <div class="s2">
+        <div class="rec-count-wrap" if="{{isCounting}}">
+          <text class="rec-count-ex">{{countEx}} {{countWt}}kg</text>
+          <div class="rec-count-row">
+            <div class="plan-wt-btn" onclick="decCount"><text class="plan-wt-arr">-</text></div>
+            <text class="rec-count-num">{{countReps}}</text>
+            <div class="plan-wt-btn" onclick="incCount"><text class="plan-wt-arr">+</text></div>
+          </div>
+          <div class="rec-count-btn-wrap">
+            <div class="rec-count-btn" onclick="confirmCount">
+              <text class="rec-count-btn-text">确认</text>
+            </div>
+          </div>
+          <div class="rec-count-btn-wrap">
+            <div class="rec-count-btn rec-count-btn-cancel" onclick="cancelCount">
+              <text class="rec-count-btn-text">取消</text>
+            </div>
+          </div>
+          <div class="plan-spacer"></div>
+        </div>
+        <div class="rec-content" if="{{!isCounting && showRecList}}">
+          <div class="rec-timebar">
+            <text class="rec-time">{{recTime}}</text>
+          </div>
+          <div class="rec-list" for="{{recListItems}}">
+            <div if="{{!$item.editing}}" class="{{$item.cls}}" onclick="onItemTap($idx)" ontouchstart="onItemTouchStart($idx)" ontouchmove="onItemTouchMove" ontouchend="onItemTouchEnd" ontouchcancel="onItemTouchEnd">
+              <div class="rec-item-row1">
+                <text class="rec-item-ex">{{$item.ex}}</text>
+              </div>
+              <div class="rec-item-row2">
+                <text class="rec-item-wt">{{$item.wt}}kg</text>
+                <text class="rec-item-sets">{{$item.setsDone}}</text>
+              </div>
+            </div>
+            <div if="{{$item.editing}}" class="rec-item rec-item-editing">
+              <div class="rec-edit-top">
+                <div class="rec-edit-btn" onclick="onWtDec($idx)"><text class="rec-edit-sym">-</text></div>
+                <text class="rec-edit-wt">{{$item.wt}}kg</text>
+                <div class="rec-edit-btn" onclick="onWtInc($idx)"><text class="rec-edit-sym">+</text></div>
+              </div>
+              <div class="rec-edit-actions">
+                <div class="rec-edit-confirm" onclick="onItemTap($idx)">
+                  <text class="rec-edit-confirm-text">确定</text>
+                </div>
+                <div class="rec-edit-del" onclick="onDelItem($idx)">
+                  <text class="rec-edit-del-text">删除</text>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="rec-empty" if="{{!isCounting && showRecEmpty}}">
+          <div class="rec-timebar">
+            <text class="rec-time">{{recTime}}</text>
+          </div>
+          <div class="rec-empty-mid">
+            <text class="rec-empty-text">计划为空</text>
+            <text class="rec-empty-sub">在计划页增加项目</text>
+          </div>
+        </div>
+        <div class="rec-bottom" if="{{!isCounting}}">
+          <div class="rec-btn-end" onclick="endTraining">
+            <text class="rec-btn-end-text">结束</text>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 屏2 今日数据 ===== -->
+      <div class="today-page">
+        <div class="today-empty" if="{{todayEmpty}}">
+          <text class="today-empty-text">暂无今日数据</text>
+        </div>
+        <div class="today-list" if="{{!todayEmpty}}">
+          <text class="today-title">今日训练</text>
+          <div class="today-ex" for="{{todayItems}}">
+            <text class="today-ex-name">{{$item.name}}</text>
+            <text class="today-ex-data">{{$item.wt}}×{{$item.reps}}={{$item.vol}}kg</text>
+          </div>
+        </div>
+        <div class="today-total" if="{{!todayEmpty}}">
+          <text class="today-total-text">总{{todayVol}}kg</text>
+        </div>
+      </div>
+
+      <!-- ===== 屏3 历史 ===== -->
+      <div class="s0">
+        <div class="log-scroll">
+          <div for="{{logItems}}" ontouchstart="onLogTouchStart($idx)" ontouchend="onLogTouchEnd($idx)" ontouchcancel="onLogTouchEnd($idx)">
+            <div class="{{$item.cls}}">
+              <text class="{{$item.lc}}">{{$item.left}}</text>
+              <text class="{{$item.rc}}">{{$item.right}}</text>
+            </div>
+          </div>
+          <div class="log-empty" if="{{logEmpty}}">
+            <text class="log-empty-text">暂无训练记录</text>
+          </div>
+        </div>
+        <div class="log-foot" if="{{!logEmpty}}">
+          <text class="log-foot-text">本月{{logDays}}天 · 总{{logTotalVol}}kg</text>
+          <text class="log-send-hint">长按日期可发送</text>
+        </div>
+      </div>
+
+      <!-- ===== 屏4 联调诊断 ===== -->
+      <div class="dbg-page">
+        <text class="dbg-title">联调诊断</text>
+        <div class="dbg-scroll">
+          <text class="dbg-line" for="{{dbgLines}}">{{$item}}</text>
+        </div>
+        <div class="dbg-hint">
+          <text class="dbg-hint-t">代码对照见手机端说明</text>
+        </div>
+        <div class="dbg-btns">
+          <div class="dbg-btn" onclick="dbgDiagnose"><text class="dbg-btn-t">诊断</text></div>
+          <div class="dbg-btn" onclick="dbgPing"><text class="dbg-btn-t">发Ping</text></div>
+          <div class="dbg-btn dbg-btn2" onclick="dbgReconnect"><text class="dbg-btn-t">重连</text></div>
+        </div>
+      </div>
+
+    </swiper>
+  </div>
+</template>
+
+<style>
+  .page { width: 336px; height: 480px; background-color: #000000; display: flex; flex-direction: column; }
+  swiper { width: 336px; height: 480px; display: flex; flex-direction: column; indicator-size: 0; indicator-bottom: 0; indicator-color: transparent; }
+
+  .s1 { width: 336px; height: 480px; background-color: #000000; display: flex; flex-direction: column; align-items: center; }
+  .plan-ex-area { width: 336px; height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 30px; }
+  .plan-ex-above { font-size: 20px; color: #333333; font-weight: 500; margin-bottom: 6px; }
+  .plan-ex-current { font-size: 52px; color: #ffffff; font-weight: 700; }
+  .plan-ex-below { font-size: 20px; color: #333333; font-weight: 500; margin-top: 6px; }
+  .plan-wt-area { width: 336px; height: 100px; display: flex; flex-direction: row; align-items: center; justify-content: center; margin-top: 20px; }
+  .plan-wt-btn { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 25px; background-color: #111111; }
+  .plan-wt-arr { font-size: 28px; color: #666666; font-weight: 600; }
+  .plan-wt-val { font-size: 64px; color: #ffffff; font-weight: 700; margin: 0 20px; }
+  .plan-spacer { flex-grow: 1; }
+  .plan-buttons { width: 336px; display: flex; flex-direction: row; align-items: center; justify-content: center; padding: 20px; }
+  .plan-btn-text { font-size: 28px; color: #ffffff; font-weight: 700; }
+  .plan-btn-only { height: 90px; display: flex; align-items: center; justify-content: center; border-radius: 20px; background-color: #30d158; padding: 0 50px; }
+
+  /* ===== 屏1 记录列表 ===== */
+  .s2 { width: 336px; height: 480px; background-color: #000000; display: flex; flex-direction: column; }
+  .rec-timebar { width: 336px; height: 34px; display: flex; flex-direction: row; align-items: center; justify-content: flex-end; padding: 0 34px; }
+  .rec-time { font-size: 20px; color: #888888; font-weight: 600; }
+  .rec-count-wrap { width: 336px; height: 480px; display: flex; flex-direction: column; align-items: center; background-color: #000000; }
+  .rec-count-ex { font-size: 26px; color: #888888; font-weight: 600; margin-top: 90px; margin-bottom: 60px; }
+  .rec-count-row { width: 336px; display: flex; flex-direction: row; align-items: center; justify-content: center; padding: 0 24px; margin-bottom: 60px; }
+  .rec-count-num { font-size: 80px; color: #30d158; font-weight: 700; margin: 0 20px; min-width: 80px; text-align: center; }
+  .rec-count-btn-wrap { width: 336px; display: flex; align-items: center; justify-content: center; padding: 0 24px; margin-bottom: 20px; }
+  .rec-count-btn { height: 90px; display: flex; align-items: center; justify-content: center; border-radius: 24px; background-color: #30d158; padding: 0 44px; flex-shrink: 0; }
+  .rec-count-btn-text { font-size: 28px; color: #ffffff; font-weight: 700; }
+  .rec-count-btn-cancel { background-color: #111111; border-width: 2px; border-style: solid; border-color: #333333; }
+  .rec-content { width: 336px; display: flex; flex-direction: column; flex-grow: 1; overflow: scroll; }
+  .rec-list { width: 336px; display: flex; flex-direction: column; padding: 8px 14px; }
+  .rec-item { width: 308px; display: flex; flex-direction: column; padding: 14px 20px; margin: 0 0 8px 0; background-color: #111111; border-radius: 14px; }
+  .rec-item-editing { background-color: #1a1a1a; }
+  .rec-item-row1 { display: flex; flex-direction: row; align-items: center; }
+  .rec-item-row2 { display: flex; flex-direction: row; align-items: center; margin-top: 4px; }
+  .rec-item-ex { font-size: 36px; color: #ffffff; font-weight: 700; flex-grow: 1; }
+  .rec-item-wt { font-size: 28px; color: #888888; font-weight: 600; margin-right: 14px; }
+  .rec-item-sets { font-size: 28px; color: #30d158; font-weight: 700; min-width: 40px; text-align: right; }
+  .rec-edit-top { display: flex; flex-direction: row; align-items: center; justify-content: center; width: 100%; padding: 12px 0; }
+  .rec-edit-btn { width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; background-color: #222222; border-radius: 20px; }
+  .rec-edit-sym { font-size: 36px; color: #30d158; font-weight: 700; }
+  .rec-edit-wt { font-size: 38px; color: #ffffff; font-weight: 700; margin: 0 16px; min-width: 80px; text-align: center; }
+  .rec-edit-actions { width: 100%; display: flex; flex-direction: row; align-items: center; justify-content: center; padding: 8px 0; }
+  .rec-edit-confirm { height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 14px; background-color: #30d158; padding: 0 24px; margin: 0 6px; }
+  .rec-edit-confirm-text { font-size: 22px; color: #ffffff; font-weight: 700; }
+  .rec-edit-del { height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 14px; background-color: #ff3b30; padding: 0 24px; margin: 0 6px; }
+  .rec-edit-del-text { font-size: 22px; color: #ffffff; font-weight: 700; }
+  .rec-empty { width: 336px; display: flex; flex-direction: column; flex-grow: 1; }
+  .rec-empty-mid { width: 336px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; }
+  .rec-empty-text { font-size: 16px; color: #444444; font-weight: 500; }
+  .rec-empty-sub { font-size: 13px; color: #333333; margin-top: 6px; }
+  .rec-bottom { width: 336px; height: 100px; display: flex; align-items: center; justify-content: center; }
+  .rec-btn-end { height: 72px; display: flex; align-items: center; justify-content: center; border-radius: 18px; background-color: #ff3b30; padding: 0 44px; }
+  .rec-btn-end-text { font-size: 26px; color: #ffffff; font-weight: 700; }
+
+  /* ===== 屏2 今日 ===== */
+  .today-page { width: 336px; height: 480px; background-color: #000000; display: flex; flex-direction: column; padding: 16px 14px; }
+  .today-empty { width: 308px; height: 408px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .today-empty-text { font-size: 28px; color: #555555; font-weight: 700; }
+  .today-list { width: 308px; height: 408px; display: flex; flex-direction: column; overflow: scroll; }
+  .today-title { font-size: 30px; color: #30d158; font-weight: 700; margin-bottom: 12px; }
+  .today-ex { display: flex; flex-direction: column; padding: 10px 0; flex-grow: 0; flex-shrink: 0; }
+  .today-ex-name { font-size: 26px; color: #ffffff; font-weight: 700; }
+  .today-ex-data { font-size: 22px; color: #30d158; font-weight: 600; margin-top: 4px; }
+  .today-total { width: 308px; height: 40px; display: flex; align-items: center; justify-content: center; }
+  .today-total-text { font-size: 26px; color: #30d158; font-weight: 700; }
+
+  /* ===== 屏3 历史 ===== */
+  .s0 { width: 336px; height: 480px; background-color: #000000; display: flex; flex-direction: column; }
+  .log-scroll { width: 336px; height: 436px; display: flex; flex-direction: column; overflow: scroll; padding: 16px 14px; }
+  .log-row-date { display: flex; flex-direction: row; align-items: center; justify-content: space-between; width: 308px; margin-top: 14px; margin-bottom: 2px; flex-grow: 0; flex-shrink: 0; }
+  .log-row { display: flex; flex-direction: row; align-items: center; justify-content: space-between; width: 308px; padding: 4px 0; flex-grow: 0; flex-shrink: 0; }
+  .log-sep { width: 308px; height: 1px; background-color: #333333; margin: 8px 0; flex-grow: 0; flex-shrink: 0; }
+  .log-date-text { font-size: 26px; color: #ffffff; font-weight: 700; }
+  .log-date-val { font-size: 22px; color: #30d158; font-weight: 700; text-align: right; }
+  .log-ex-name { font-size: 20px; color: #cccccc; font-weight: 500; }
+  .log-ex-val { font-size: 20px; color: #30d158; font-weight: 600; text-align: right; }
+  .log-sep-text { font-size: 10px; color: #333333; }
+  .log-empty { width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .log-empty-text { font-size: 22px; color: #444444; font-weight: 600; text-align: center; margin-top: 160px; }
+  .log-foot { width: 336px; height: 44px; display: flex; flex-direction: row; align-items: center; justify-content: space-between; background-color: #111111; padding: 0 14px; }
+  .log-foot-text { font-size: 20px; color: #30d158; font-weight: 600; }
+  .log-send-hint { font-size: 16px; color: #555555; font-weight: 500; }
+
+  /* ===== 屏4 联调诊断 ===== */
+  .dbg-page { width: 336px; height: 480px; background-color: #000000; display: flex; flex-direction: column; padding: 16px 14px; }
+  .dbg-title { font-size: 30px; color: #30d158; font-weight: 700; margin-bottom: 10px; }
+  .dbg-scroll { width: 308px; flex-grow: 1; display: flex; flex-direction: column; overflow: scroll; }
+  .dbg-line { font-size: 18px; color: #dddddd; margin: 4px 0; line-height: 24px; }
+  .dbg-hint { width: 308px; padding: 6px 0; }
+  .dbg-hint-t { font-size: 14px; color: #555555; }
+  .dbg-btns { width: 308px; height: 96px; display: flex; flex-direction: row; align-items: center; justify-content: space-between; }
+  .dbg-btn { height: 64px; display: flex; align-items: center; justify-content: center; border-radius: 20px; background-color: #30d158; padding: 0 20px; flex-shrink: 0; }
+  .dbg-btn2 { background-color: #111111; border-width: 2px; border-style: solid; border-color: #444444; }
+  .dbg-btn-t { font-size: 22px; color: #ffffff; font-weight: 700; }
+</style>
+
+<script>
+import vibrator from '@system.vibrator'
+import prompt from '@system.prompt'
+import router from '@system.router'
+import dataModule from '../../common/data'
+import fileIO from '../../common/file-io'
+import icClient from '../../common/interconnect-client'
+
+var exercises = dataModule.getExerciseNames()
+
+function pad2(n) { return (n < 10 ? '0' : '') + n }
+
+export default {
+  private: {
+    planCount: 0,
+    exAbove: '',
+    exCurrent: '',
+    exBelow: '',
+    wtCurrent: 0,
+    swiperPage: 0,
+    planItems: [],
+    recListItems: [],
+    showRecList: true,
+    showRecEmpty: true,
+    editingIdx: -1,
+    delPending: false,
+    isCounting: false,
+    countIdx: -1,
+    countEx: '',
+    countWt: 0,
+    countReps: 10,
+    logItems: [],
+    logEmpty: true,
+    logDays: 0,
+    logTotalVol: 0,
+    recTime: '',
+    todayEmpty: true,
+    todayItems: [],
+    todayVol: 0,
+    dbgLines: []
+  },
+
+  onInit: function() {
+    this.int_exIdx = 0
+    this.int_wtIdx = 1
+    this.int_weights = []
+    this.int_records = {}
+    this.int_logPressTimer = null
+    this._initPlan()
+    this._syncRecList()
+    this._loadAndRefresh()
+    this._updateTime()
+    var self = this
+    this.int_timer = setInterval(function() { self._updateTime() }, 30000)
+    this._dbgInit()
+  },
+
+  onDestroy: function() {
+    if (this.int_timer) { clearInterval(this.int_timer); this.int_timer = null }
+    if (this.int_pressTimer) { clearTimeout(this.int_pressTimer); this.int_pressTimer = null }
+    if (this.int_logPressTimer) { clearTimeout(this.int_logPressTimer); this.int_logPressTimer = null }
+    if (this.int_dbgTimer) { clearTimeout(this.int_dbgTimer); this.int_dbgTimer = null }
+  },
+
+  /* ===== 联调诊断 ===== */
+  _dbgOnEvent: function(evt, data) {
+    var code = ''
+    var txt = ''
+    if (evt === 'instance') { code = 'B01'; txt = '连接对象已创建' }
+    else if (evt === 'instance-error') { code = 'B02'; txt = '创建失败: ' + data }
+    else if (evt === 'open') { code = 'B03'; txt = '通道已打开(onopen)' }
+    else if (evt === 'close') { code = 'B04'; txt = '通道关闭 code=' + (data && data.code) + ' ' + (data && data.data) }
+    else if (evt === 'error') { code = 'B05'; txt = '通道错误 code=' + (data && data.code) + ' ' + (data && data.data) }
+    else if (evt === 'message') {
+      var raw = String(data && data.data)
+      if (raw.indexOf('ping-reply') >= 0) { code = 'B10'; txt = '收到手机回包 双向打通!' }
+      else { code = 'B09'; txt = '收到手机消息: ' + raw.slice(0, 36) }
+    }
+    else { return }
+    this._dbgLog(code, txt)
+  },
+
+  _dbgInit: function() {
+    var self = this
+    icClient.init({ onEvent: function(evt, data) { self._dbgOnEvent(evt, data) } })
+    this._dbgLog('B00', '诊断启动 minPV=1200')
+    this.int_dbgTimer = setTimeout(function() { self._dbgRun() }, 2500)
+  },
+
+  _dbgLog: function(code, txt) {
+    var now = new Date()
+    var line = pad2(now.getHours()) + ':' + pad2(now.getMinutes()) + ':' + pad2(now.getSeconds()) + ' ' + code + ' ' + txt
+    var arr = this.dbgLines.slice()
+    arr.push(line)
+    while (arr.length > 30) { arr.shift() }
+    this.dbgLines = arr
+    console.log('[dbg] ' + line)
+  },
+
+  _dbgRun: function() {
+    var self = this
+    icClient.getState(function(err, status) {
+      if (err === 'no-conn') { self._dbgLog('B06', '状态: 未初始化'); return }
+      if (err) { self._dbgLog('B06', '状态查询失败 code=' + err + ' ' + status); return }
+      self._dbgLog('B06', status === 1 ? '状态=1 已连接' : '状态=' + status + ' 断开')
+    })
+    var self2 = this
+    setTimeout(function() {
+      icClient.diagnosis(function(err, st) {
+        if (err === 'no-conn') { self2._dbgLog('B07', '诊断: 未初始化'); return }
+        if (err) { self2._dbgLog('B07', '诊断失败 code=' + err + ' ' + st); return }
+        if (st === 0) { self2._dbgLog('B07', '诊断=0 OK 对端连通') }
+        else if (st === 204) { self2._dbgLog('B07', '诊断=204 连接超时') }
+        else if (st === 1001) { self2._dbgLog('B07', '诊断=1001 对端APP未安装') }
+        else { self2._dbgLog('B07', '诊断=' + st + ' 其他错误') }
+      })
+    }, 1500)
+  },
+
+  dbgDiagnose: function() {
+    this._dbgRun()
+  },
+
+  dbgPing: function() {
+    var self = this
+    var payload = { type: 'ping', t: Date.now(), src: 'band-dbg' }
+    icClient.send(payload, function(ok, err) {
+      if (ok) { self._dbgLog('B08', 'Ping发送成功(等手机回包)') }
+      else { self._dbgLog('B08', 'Ping发送失败 code=' + err) }
+    })
+  },
+
+  dbgReconnect: function() {
+    var self = this
+    this._dbgLog('B00', '手动重连...')
+    icClient.init({ onEvent: function(evt, data) { self._dbgOnEvent(evt, data) } })
+    setTimeout(function() { self._dbgRun() }, 2000)
+  },
+
+  _updateTime: function() {
+    var now = new Date()
+    this.recTime = pad2(now.getHours()) + ':' + pad2(now.getMinutes())
+  },
+
+  _loadAndRefresh: function() {
+    var self = this
+    fileIO.readRecords(function(records) {
+      self.int_records = records || {}
+      self._buildLog()
+      self._buildToday()
+    })
+  },
+
+  _buildToday: function() {
+    var now = new Date()
+    var todayStr = now.getFullYear() + '-' + pad2(now.getMonth() + 1) + '-' + pad2(now.getDate())
+    var dayRecs = this.int_records[todayStr]
+    if (!dayRecs || !dayRecs.length) { this.todayEmpty = true; this.todayItems = []; this.todayVol = 0; return }
+    this.todayEmpty = false
+    var items = []
+    var totalVol = 0
+    for (var i = 0; i < dayRecs.length; i++) {
+      var r = dayRecs[i]
+      if (!r || !r.sets) continue
+      var vol = 0; var totalSets = r.sets.length; var totalReps = 0
+      for (var j = 0; j < r.sets.length; j++) { totalReps += r.sets[j].reps || 0; vol += r.sets[j].volume || 0 }
+      items.push({ name: r.exercise, wt: r.weight, sets: totalSets, reps: totalReps, vol: vol })
+      totalVol += vol
+    }
+    this.todayItems = items
+    this.todayVol = totalVol
+    if (items.length === 0) { this.todayEmpty = true; this.todayItems = []; this.todayVol = 0 }
+  },
+
+  _initPlan: function() { this.int_exIdx = 0; this._updateWeights(); this._updateExDisplay() },
+
+  _updateWeights: function() {
+    var ex = exercises[this.int_exIdx]
+    this.int_weights = dataModule.getWeights(ex)
+    this.int_wtIdx = Math.min(1, this.int_weights.length - 1)
+    this.wtCurrent = this.int_weights.length > 0 ? this.int_weights[this.int_wtIdx] : 0
+  },
+
+  _updateExDisplay: function() {
+    var len = exercises.length
+    this.exCurrent = exercises[this.int_exIdx]
+    this.exAbove = exercises[(this.int_exIdx - 1 + len) % len]
+    this.exBelow = exercises[(this.int_exIdx + 1) % len]
+  },
+
+  onExTouchStart: function(e) { var t = (e && e.touches && e.touches[0]) || (e && e.changedTouches && e.changedTouches[0]); this.int_touchStartY = t ? (t.clientY || t.screenY || 0) : 0 },
+  onExTouchMove: function(e) {
+    if (!e || !e.touches || !e.touches[0]) return
+    var dy = e.touches[0].clientY - this.int_touchStartY
+    if (Math.abs(dy) > 60) {
+      if (dy > 0) this.prevEx(); else this.nextEx()
+      this.int_touchStartY = e.touches[0].clientY
+    }
+  },
+  onExTouchEnd: function() {},
+
+  prevEx: function() {
+    var len = exercises.length
+    this.int_exIdx = (this.int_exIdx - 1 + len) % len
+    this._updateExDisplay(); this._updateWeights()
+  },
+
+  nextEx: function() {
+    var len = exercises.length
+    this.int_exIdx = (this.int_exIdx + 1) % len
+    this._updateExDisplay(); this._updateWeights()
+  },
+
+  prevWt: function() {
+    var len = this.int_weights.length
+    if (len === 0) return
+    this.int_wtIdx = (this.int_wtIdx - 1 + len) % len
+    this.wtCurrent = this.int_weights[this.int_wtIdx]
+  },
+
+  nextWt: function() {
+    var len = this.int_weights.length
+    if (len === 0) return
+    this.int_wtIdx = (this.int_wtIdx + 1) % len
+    this.wtCurrent = this.int_weights[this.int_wtIdx]
+  },
+
+  addToPlan: function() {
+    if (this.planItems.length >= 10) { prompt.showToast({ message: '\u5df2\u8fbe\u4e0a\u965010\u9879' }); return }
+    this.planItems.push({ ex: this.exCurrent, wt: this.wtCurrent, setsDone: 0, setRecords: [] })
+    this.planCount = this.planItems.length
+    this.planItems = this.planItems.slice()
+    this._syncRecList()
+    prompt.showToast({ message: '\u5df2\u6dfb\u52a0' })
+    vibrator.vibrate({ mode: 'short' })
+  },
+
+  _syncRecList: function() {
+    var items = this.planItems
+    var list = []
+    this.showRecEmpty = (items.length === 0)
+    this.showRecList = !this.showRecEmpty
+    var edIdx = this.editingIdx
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i]
+      var cls = 'rec-item'
+      if (i === edIdx) cls = 'rec-item rec-item-editing'
+      list.push({
+        ex: it.ex, wt: it.wt, setsDone: it.setsDone || 0,
+        editing: i === edIdx,
+        cls: cls
+      })
+    }
+    this.recListItems = list
+  },
+
+  onItemTap: function(idx) {
+    if (this.isCounting) return
+    if (this.delPending) return
+    if (this.int_suppressTap) { this.int_suppressTap = false; return }
+    if (this.editingIdx === idx) { this.editingIdx = -1; this._syncRecList(); return }
+    if (this.editingIdx !== -1) { this.editingIdx = -1; this._syncRecList(); return }
+    this.startCount(idx)
+  },
+
+  startCount: function(idx) {
+    var item = this.planItems[idx]; if (!item) return
+    this.isCounting = true
+    this.countIdx = idx
+    this.countEx = item.ex
+    this.countWt = item.wt
+    this.countReps = 10
+    vibrator.vibrate({ mode: 'short' })
+  },
+
+  decCount: function() { if (this.countReps > 1) this.countReps-- },
+  incCount: function() { this.countReps++ },
+
+  confirmCount: function() {
+    var item = this.planItems[this.countIdx]; if (!item) return
+    var reps = this.countReps
+    var volume = item.wt * reps
+    if (!item.setRecords) item.setRecords = []
+    item.setRecords.push({ set: item.setRecords.length + 1, reps: reps, volume: volume, weight: item.wt })
+    item.setsDone = (item.setsDone || 0) + 1
+    this.isCounting = false
+    this.countIdx = -1
+    this._syncRecList()
+    vibrator.vibrate({ mode: 'short' })
+  },
+
+  cancelCount: function() {
+    this.isCounting = false
+    this.countIdx = -1
+    this._syncRecList()
+  },
+
+  endTraining: function() {
+    var hasRecords = false
+    for (var i = 0; i < this.planItems.length; i++) {
+      if (this.planItems[i].setRecords && this.planItems[i].setRecords.length > 0) { hasRecords = true; break }
+    }
+    if (!hasRecords) { prompt.showToast({ message: '\u65e0\u8bad\u7ec3\u8bb0\u5f55' }); return }
+    prompt.showToast({ message: '\u4fdd\u5b58\u4e2d...' })
+    this._saveAndNavigate()
+  },
+
+  _saveAndNavigate: function() {
+    var self = this
+    var now = new Date()
+    var dateStr = now.getFullYear() + '-' + pad2(now.getMonth() + 1) + '-' + pad2(now.getDate())
+    if (!self.int_records[dateStr]) self.int_records[dateStr] = []
+    for (var i = 0; i < self.planItems.length; i++) {
+      var item = self.planItems[i]
+      if (!item.setRecords || item.setRecords.length === 0) continue
+      var byWeight = {}
+      for (var k = 0; k < item.setRecords.length; k++) {
+        var s = item.setRecords[k]
+        var w = s.weight || item.wt
+        if (!byWeight[w]) byWeight[w] = []
+        byWeight[w].push({ set: s.set, reps: s.reps, volume: s.volume })
+      }
+      var weights = Object.keys(byWeight)
+      for (var wi = 0; wi < weights.length; wi++) {
+        var tw = parseInt(weights[wi])
+        var newSets = byWeight[weights[wi]]
+        var exist = -1
+        for (var jj = 0; jj < self.int_records[dateStr].length; jj++) {
+          if (self.int_records[dateStr][jj].exercise === item.ex && self.int_records[dateStr][jj].weight === tw) { exist = jj; break }
+        }
+        if (exist >= 0) {
+          var base = self.int_records[dateStr][exist].sets.length
+          for (var si3 = 0; si3 < newSets.length; si3++) { newSets[si3].set = base + si3 + 1 }
+          self.int_records[dateStr][exist].sets = self.int_records[dateStr][exist].sets.concat(newSets)
+        } else {
+          self.int_records[dateStr].push({ exercise: item.ex, weight: tw, sets: newSets })
+        }
+      }
+    }
+    fileIO.saveRecords(self.int_records, function(success) {
+      if (success) {
+        self.planItems = []; self.planCount = 0; self.planItems = self.planItems.slice()
+        self.editingIdx = -1
+        self._syncRecList()
+        self._buildLog()
+        self._buildToday()
+        self.swiperPage = 2
+      } else {
+        prompt.showToast({ message: '\u4fdd\u5b58\u5931\u8d25' })
+      }
+    })
+  },
+
+  onSwiperChange: function(e) {
+    if (!e || typeof e.index !== 'number') return
+    if (this.isCounting) {
+      this.swiperPage = 1
+      return
+    }
+    this.swiperPage = e.index
+    if (e.index === 3) {
+      this._dbgRun()
+    }
+  },
+
+  onItemTouchStart: function(idx) {
+    var self = this
+    this.int_pressTimer = setTimeout(function() { self._enterEdit(idx) }, 500)
+  },
+
+  onItemTouchMove: function() {
+    if (this.int_pressTimer) { clearTimeout(this.int_pressTimer); this.int_pressTimer = null }
+  },
+
+  onItemTouchEnd: function() {
+    if (this.int_pressTimer) { clearTimeout(this.int_pressTimer); this.int_pressTimer = null }
+  },
+
+  _enterEdit: function(idx) {
+    var item = this.planItems[idx]
+    if (!item || this.isCounting || item.setsDone > 0) return
+    this.int_suppressTap = true
+    this.editingIdx = idx
+    this._syncRecList()
+    var self = this
+    setTimeout(function() { self.int_suppressTap = false }, 500)
+  },
+
+  onWtDec: function(idx) {
+    var item = this.planItems[idx]
+    if (!item || item.wt <= 0) return
+    var step = dataModule.getStep(item.ex)
+    item.wt -= step
+    if (item.wt < 0) item.wt = 0
+    this.planItems = this.planItems.slice()
+    this._syncRecList()
+  },
+
+  onWtInc: function(idx) {
+    var item = this.planItems[idx]
+    if (!item) return
+    var step = dataModule.getStep(item.ex)
+    item.wt += step
+    this.planItems = this.planItems.slice()
+    this._syncRecList()
+  },
+
+  onDelItem: function(idx) {
+    this.planItems.splice(idx, 1)
+    this.planItems = this.planItems.slice()
+    this.planCount = this.planItems.length
+    this.editingIdx = -1
+    this.delPending = true
+    this._syncRecList()
+    var self = this
+    setTimeout(function() { self.delPending = false }, 300)
+  },
+
+  exitApp: function() {
+    router.back()
+  },
+
+  onLogTouchStart: function(idx) {
+    var item = this.logItems[idx]
+    if (!item || item.cls !== 'log-row-date') return
+    var self = this
+    this.int_logPressTimer = setTimeout(function() { self._sendDayRecords(item.left) }, 500)
+  },
+
+  onLogTouchEnd: function() {
+    if (this.int_logPressTimer) { clearTimeout(this.int_logPressTimer); this.int_logPressTimer = null }
+  },
+
+  _sendDayRecords: function(date) {
+    var recs = this.int_records[date]
+    if (!recs || !recs.length) { prompt.showToast({ message: '无数据' }); return }
+    var payload = { type: 'training-records', date: date, records: recs }
+    var self = this
+    icClient.send(payload, function(ok, err) {
+      if (ok) {
+        prompt.showToast({ message: '已发送 ' + date })
+        vibrator.vibrate({ mode: 'short' })
+      } else {
+        prompt.showToast({ message: '发送失败 code=' + err })
+      }
+    })
+  },
+
+  _buildLog: function() {
+    var recs = this.int_records
+    var dates = Object.keys(recs).sort(function(a, b) { return b.localeCompare(a) })
+    var items = []
+    var now = new Date()
+    var mKey = now.getFullYear() + '-' + pad2(now.getMonth() + 1)
+    var mDays = 0, mVol = 0
+    for (var di = 0; di < dates.length; di++) {
+      var d = dates[di]
+      var dayRecs = recs[d]
+      if (!dayRecs || !dayRecs.length) continue
+      var dayVol = 0
+      for (var ei = 0; ei < dayRecs.length; ei++) {
+        var r = dayRecs[ei]
+        if (!r || !r.sets) continue
+        var tv = 0
+        for (var si = 0; si < r.sets.length; si++) { tv += r.sets[si].volume || 0 }
+        dayVol += tv
+      }
+      var isM = d.indexOf(mKey) === 0
+      if (isM) { mDays++; mVol += dayVol }
+      items.push({ cls: 'log-row-date', lc: 'log-date-text', rc: 'log-date-val', left: d, right: dayVol + 'kg' })
+      for (var ei2 = 0; ei2 < dayRecs.length; ei2++) {
+        var r2 = dayRecs[ei2]
+        if (!r2 || !r2.sets) continue
+        var tr2 = 0, tv2 = 0
+        for (var si2 = 0; si2 < r2.sets.length; si2++) { tr2 += r2.sets[si2].reps || 0; tv2 += r2.sets[si2].volume || 0 }
+        items.push({ cls: 'log-row', lc: 'log-ex-name', rc: 'log-ex-val', left: r2.exercise, right: r2.weight + '\u00d7' + tr2 + '=' + tv2 + 'kg' })
+      }
+      items.push({ cls: 'log-sep', lc: 'log-sep-text', rc: 'log-sep-text', left: ' ', right: ' ' })
+    }
+    this.logItems = items
+    this.logEmpty = items.length === 0
+    this.logDays = mDays
+    this.logTotalVol = mVol
+  },
+}
+</script>

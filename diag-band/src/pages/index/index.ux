@@ -1,0 +1,149 @@
+<template>
+  <div class="page">
+    <text class="title">手环→手机 自动诊断</text>
+    <div class="status-area">
+      <text class="s-line" for="{{lines}}">{{$item}}</text>
+    </div>
+    <div class="btn-row">
+      <div class="btn" onclick="sendAgain">
+        <text class="btn-t">再发一次</text>
+      </div>
+      <div class="btn btn2" onclick="reconnect">
+        <text class="btn-t">重连</text>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style>
+  .page { width: 480px; height: 480px; background-color: #000000; display: flex; flex-direction: column; }
+  .title { font-size: 34px; color: #30d158; font-weight: 700; margin: 20px 20px 10px 20px; }
+  .status-area { width: 440px; flex-grow: 1; display: flex; flex-direction: column; margin: 0 20px; overflow: scroll; }
+  .s-line { font-size: 26px; color: #dddddd; margin: 6px 0; line-height: 34px; }
+  .btn-row { width: 480px; height: 110px; display: flex; flex-direction: row; align-items: center; justify-content: center; }
+  .btn { height: 70px; display: flex; align-items: center; justify-content: center; border-radius: 16px; background-color: #30d158; padding: 0 34px; margin: 0 10px; }
+  .btn2 { background-color: #111111; border-width: 2px; border-style: solid; border-color: #444444; }
+  .btn-t { font-size: 30px; color: #ffffff; font-weight: 700; }
+</style>
+
+<script>
+  import interconnect from '@system.interconnect'
+
+  var LOG_MAX = 10
+
+  function pad2(n) { return (n < 10 ? '0' : '') + n }
+
+  export default {
+    private: {
+      lines: []
+    },
+
+    onReady: function() {
+      this.int_conn = null
+      this.int_started = false
+      this._log('== 启动 ==')
+      this._setup()
+    },
+
+    onDestroy: function() {
+      if (this.int_t1) { clearTimeout(this.int_t1); this.int_t1 = null }
+      if (this.int_t2) { clearTimeout(this.int_t2); this.int_t2 = null }
+      if (this.int_t3) { clearTimeout(this.int_t3); this.int_t3 = null }
+    },
+
+    _log: function(msg) {
+      var now = new Date()
+      var line = pad2(now.getHours()) + ':' + pad2(now.getMinutes()) + ':' + pad2(now.getSeconds()) + ' ' + msg
+      var arr = this.lines.slice()
+      arr.push(line)
+      while (arr.length > LOG_MAX) { arr.shift() }
+      this.lines = arr
+      console.log('[diag] ' + line)
+    },
+
+    _setup: function() {
+      var self = this
+      this._log('创建连接...')
+      try {
+        var conn = interconnect.instance()
+        this.int_conn = conn
+        this._log('instance OK')
+        conn.onopen = function(res) { self._log('onopen 已连接 ' + JSON.stringify(res)) }
+        conn.onclose = function(res) { self._log('onclose code=' + res.code + ' ' + res.data) }
+        conn.onerror = function(res) { self._log('onerror code=' + res.code + ' ' + res.data) }
+        conn.onmessage = function(res) { self._log('收到手机→ ' + res.data) }
+        this._log('回调已绑定')
+      } catch (e) {
+        this._log('instance 异常 ' + (e && e.message ? e.message : e))
+        return
+      }
+      if (this.int_t1) clearTimeout(this.int_t1)
+      if (this.int_t2) clearTimeout(this.int_t2)
+      if (this.int_t3) clearTimeout(this.int_t3)
+      this.int_t1 = setTimeout(function() { self._stepState() }, 1500)
+      this.int_t2 = setTimeout(function() { self._stepDiag() }, 3200)
+      this.int_t3 = setTimeout(function() { self._stepSend() }, 5000)
+    },
+
+    _stepState: function() {
+      var self = this
+      this._log('查询连接状态...')
+      try {
+        this.int_conn.getReadyState({
+          success: function(res) {
+            self._log('状态=' + res.status + (res.status === 1 ? ' 已连接' : ' 断开'))
+          },
+          fail: function(data, code) {
+            self._log('状态查询失败 code=' + code + ' ' + data)
+          }
+        })
+      } catch (e) {
+        this._log('状态查询异常 ' + (e && e.message ? e.message : e))
+      }
+    },
+
+    _stepDiag: function() {
+      var self = this
+      this._log('连接诊断(无timeout)...')
+      try {
+        this.int_conn.diagnosis({
+          success: function(res) {
+            self._log('诊断=' + JSON.stringify(res))
+          },
+          fail: function(data, code) {
+            self._log('诊断失败 code=' + code + ' ' + data)
+          }
+        })
+      } catch (e) {
+        this._log('诊断异常 ' + (e && e.message ? e.message : e))
+      }
+    },
+
+    _stepSend: function() {
+      var self = this
+      var payload = { type: 'diag', msg: 'band-to-phone', t: Date.now(), n: 123, arr: [1, 'a'] }
+      this._log('发送对象...')
+      try {
+        this.int_conn.send({
+          data: payload,
+          success: function() {
+            self._log('>>> 发送成功 OK <<<')
+          },
+          fail: function(data, code) {
+            self._log('发送失败 code=' + code + ' ' + data)
+          }
+        })
+      } catch (e) {
+        this._log('发送异常 ' + (e && e.message ? e.message : e))
+      }
+    },
+
+    sendAgain: function() {
+      this._stepSend()
+    },
+
+    reconnect: function() {
+      this._setup()
+    }
+  }
+</script>
