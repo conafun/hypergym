@@ -120,6 +120,44 @@ HyperGym 是一套**手环 + 手机**协同的力量训练记录系统：
 
 ---
 
+## 手环端界面（Vela 快应用）
+
+手环端为 `miband10pro-trainer`（Vela OS 快应用，`com.hypergym`，versionName **1.0.61**）。主界面是一个横向滑动容器，**左右滑动切换 5 屏**，记录完成后进入「训练完成」汇总页。
+
+<table>
+<tr>
+  <td><img src="screenshots/band-0-plan.png" width="200"></td>
+  <td><img src="screenshots/band-1-records.png" width="200"></td>
+  <td><img src="screenshots/band-2-today.png" width="200"></td>
+</tr>
+<tr>
+  <td align="center">屏0 · 计划</td>
+  <td align="center">屏1 · 记录列表</td>
+  <td align="center">屏2 · 今日数据</td>
+</tr>
+<tr>
+  <td><img src="screenshots/band-3-history.png" width="200"></td>
+  <td><img src="screenshots/band-4-debug.png" width="200"></td>
+  <td><img src="screenshots/band-5-summary.png" width="200"></td>
+</tr>
+<tr>
+  <td align="center">屏3 · 历史</td>
+  <td align="center">屏4 · 联调诊断</td>
+  <td align="center">训练完成 · 汇总</td>
+</tr>
+</table>
+
+> 界面图按 `.ux` 源码精确还原（黑底 + 绿色主操作色），数据为示例。
+
+- **屏0 · 计划**：上下滑动切换 9 个训练动作，左右加减重量（按各动作步进），「增加」加入计划。
+- **屏1 · 记录列表**：显示已加入计划的项目与已完成组数；点击项目开始计次（`-` / 次数 / `+` / 确认 / 取消）；长按项目编辑重量（`- / +` / 确定 / 删除）；「结束」保存并进入汇总。
+- **屏2 · 今日数据**：今日各动作的训练明细 + 当日总容量。
+- **屏3 · 历史**：按日期列出历史训练（每条含动作与容量），底部「本月 X 天 · 总 Xkg」；**长按日期即发送当天数据到手机**。
+- **屏4 · 联调诊断**：B00/B01… 调试码日志 +「诊断 / 发Ping / 重连」按钮，用于排查互联互通。
+- **训练完成 · 汇总**：记录结束后展示本次「动作 / 总组数 / 总容量」+ 每个动作的逐组明细，「返回主页」。
+
+---
+
 ## 系统架构
 
 ```
