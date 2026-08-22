@@ -5,7 +5,7 @@
 <h1 align="center">HyperGym</h1>
 
 <p align="center">
-  <strong>小米手环 10 Pro × 手机的力量训练追踪系统</strong><br>
+  <strong>小米手环 10 Pro × 小米手机的力量训练追踪系统</strong><br>
   手环上记录每一组，手机上看到每一天
 </p>
 
