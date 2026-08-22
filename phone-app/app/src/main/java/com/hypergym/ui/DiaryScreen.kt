@@ -20,11 +20,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
@@ -108,14 +111,14 @@ private fun DayCard(
                 .pointerInput(editing) {
                     detectTapGestures(
                         onTap = { if (editing) onToggleEdit() },
-                        onLongPress = { if (!editing) onToggleEdit() },
+                        onLongPress = { onToggleEdit() },
                     )
                 },
             shape = CardRadius,
             color = HColors.Card,
             shadowElevation = if (editing) 6.dp else 1.dp,
         ) {
-            Column(Modifier.padding(horizontal = 12.dp, vertical = 12.dp)) {
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(day.date, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = HColors.TextPrimary)
                     Surface(shape = RoundedCornerShape(6.dp), color = HColors.Background, modifier = Modifier.padding(start = 6.dp)) {
@@ -145,9 +148,18 @@ private fun DayCard(
                         color = HColors.Primary,
                     )
                 }
-                day.records.forEachIndexed { i, ex ->
-                    if (i > 0) HorizontalDivider(color = HColors.Border)
-                    ExerciseRow(ex)
+                // 动作明细：固定高度（完整显示 3 个动作），超出部分卡片内上下滚动
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp)
+                        .height(216.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    day.records.forEachIndexed { i, ex ->
+                        if (i > 0) HorizontalDivider(color = HColors.Border)
+                        ExerciseRow(ex)
+                    }
                 }
             }
         }

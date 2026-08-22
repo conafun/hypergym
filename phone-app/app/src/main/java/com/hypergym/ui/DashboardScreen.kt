@@ -399,7 +399,7 @@ private fun DayContentCard(day: TrainingDay?, date: String, today: String) {
 
 @Composable
 fun ExerciseRow(ex: ExerciseRecord) {
-    Column(Modifier.padding(vertical = 6.dp)) {
+    Column(Modifier.padding(vertical = 5.dp)) {
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -415,7 +415,7 @@ fun ExerciseRow(ex: ExerciseRecord) {
             Text("${ex.weight}kg × ${ex.sets.size}组", fontSize = 12.sp, color = HColors.TextSecondary)
         }
         Row(
-            Modifier.fillMaxWidth().padding(top = 4.dp),
+            Modifier.fillMaxWidth().padding(top = 3.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {

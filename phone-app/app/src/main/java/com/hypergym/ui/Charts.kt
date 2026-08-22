@@ -1,14 +1,20 @@
 package com.hypergym.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -89,54 +95,56 @@ fun VolumeBarChart(points: List<BarPoint>, modifier: Modifier = Modifier) {
 data class ExBar(val name: String, val value: Double, val color: Color)
 data class DayBars(val label: String, val bars: List<ExBar>)
 
-/** 分组柱状图：每天一组，同天不同动作不同色，柱高 = 容量，柱顶数值 */
+/** 分组柱状图：每天一组，同天不同动作不同色，柱宽较细；点击选中某天，由外部显示该天图例 */
 @Composable
-fun GroupedBarChart(days: List<DayBars>, modifier: Modifier = Modifier) {
+fun GroupedBarChart(
+    days: List<DayBars>,
+    selectedLabel: String?,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val scrollState = rememberScrollState()
-    val barW = 18.dp
-    val barGap = 3.dp
-    val groupGap = 26.dp
+    val barW = 9.dp
+    val barGap = 2.dp
+    val groupGap = 20.dp
+    val barH = 120.dp
     val maxBars = days.maxOfOrNull { it.bars.size } ?: 1
     val groupW = barW * maxBars + barGap * (maxBars - 1) + groupGap
-    val chartWidth = maxOf(320.dp, groupW * days.size)
-    val textMeasurer = rememberTextMeasurer()
-    Box(modifier = modifier.fillMaxWidth().horizontalScroll(scrollState)) {
-        Canvas(Modifier.width(chartWidth).height(170.dp)) {
-            val maxV = days.flatMap { it.bars }.maxOfOrNull { it.value } ?: 1.0
-            val topPad = 22.dp.toPx()
-            val bottomPad = 24.dp.toPx()
-            val plotH = size.height - topPad - bottomPad
-            val left = 8.dp.toPx()
-            val gwp = groupW.toPx()
-            val bwp = barW.toPx()
-            val bgp = barGap.toPx()
-            val ggp = groupGap.toPx()
-            days.forEachIndexed { gi, day ->
-                val gx = left + gi * gwp
-                val n = day.bars.size
-                val totalArea = n * bwp + (n - 1) * bgp
-                val startX = gx + (gwp - ggp - totalArea) / 2
-                day.bars.forEachIndexed { bi, b ->
-                    val x = startX + bi * (bwp + bgp)
-                    val h = (b.value / maxV).toFloat() * plotH
-                    val y = topPad + plotH - h
-                    drawRoundRect(
-                        color = b.color,
-                        topLeft = Offset(x, y),
-                        size = Size(bwp, maxOf(h, 1.dp.toPx())),
-                        cornerRadius = CornerRadius(3.dp.toPx()),
-                    )
-                    val t = textMeasurer.measure(
-                        AnnotatedString(Math.round(b.value).toString()),
-                        style = TextStyle(fontSize = 7.sp, color = Color(0xFF6B7280)),
-                    )
-                    drawText(t, topLeft = Offset(x + bwp / 2 - t.size.width / 2, y - t.size.height - 3.dp.toPx()))
+    val maxV = days.flatMap { it.bars }.maxOfOrNull { it.value } ?: 1.0
+
+    Row(
+        modifier = modifier.fillMaxWidth().horizontalScroll(scrollState),
+        horizontalArrangement = Arrangement.Start,
+    ) {
+        days.forEach { day ->
+            val sel = day.label == selectedLabel
+            Column(
+                modifier = Modifier
+                    .width(groupW)
+                    .clickable { onSelect(day.label) },
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Row(
+                    modifier = Modifier.height(barH),
+                    horizontalArrangement = Arrangement.spacedBy(barGap),
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    day.bars.forEach { b ->
+                        Box(
+                            Modifier
+                                .width(barW)
+                                .height(((b.value / maxV).toFloat().coerceAtLeast(0.03f) * barH.value).dp)
+                                .background(b.color, RoundedCornerShape(3.dp)),
+                        )
+                    }
                 }
-                val lt = textMeasurer.measure(
-                    AnnotatedString(day.label),
-                    style = TextStyle(fontSize = 9.sp, color = HColors.TextSecondary),
+                Text(
+                    day.label,
+                    fontSize = 9.sp,
+                    color = if (sel) HColors.Primary else HColors.TextSecondary,
+                    fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal,
+                    modifier = Modifier.padding(top = 5.dp),
                 )
-                drawText(lt, topLeft = Offset(gx + (gwp - ggp) / 2 - lt.size.width / 2, size.height - lt.size.height - 4.dp.toPx()))
             }
         }
     }

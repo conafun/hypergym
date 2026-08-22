@@ -35,6 +35,13 @@ object HColors {
 /** 卡片圆角（区块化） */
 val CardRadius = RoundedCornerShape(18.dp)
 
+/** 统一配色调色板：动作数据汇总 / 数据透视 / 肌群占比共用，保证同页风格一致 */
+val ChartPalette = listOf(
+    Color(0xFFE06040), Color(0xFF7090E0), Color(0xFF3E9E7B), Color(0xFFF2A65A),
+    Color(0xFF9B7BC4), Color(0xFF4FB8C9), Color(0xFFE07856), Color(0xFF7E9B6E),
+    Color(0xFFC97B8B), Color(0xFF5C8DBC), Color(0xFFD99A4E), Color(0xFF8A9AA8),
+)
+
 private val LightColors = lightColorScheme(
     primary = HColors.Primary,
     onPrimary = Color.White,
