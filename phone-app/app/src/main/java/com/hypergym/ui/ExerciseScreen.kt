@@ -135,7 +135,7 @@ private fun GroupChips(selected: String, onSelect: (String) -> Unit) {
                 Text(
                     g,
                     Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
-                    color = if (sel) Color.White else HColors.TextSecondary,
+                    color = Color(0xFF000000),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                 )

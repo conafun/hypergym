@@ -149,8 +149,8 @@ private fun PivotChart(data: PivotData, chartType: String, modifier: Modifier = 
             for (g in 0..4) {
                 val v = maxV * (4 - g) / 4
                 val y = topPad + plotH * g / 4
-                drawLine(Color(0xFFEFEFF2), Offset(gx, y), Offset(size.width - rightPad, y), 1f)
-                val t = textMeasurer.measure(AnnotatedString(fmtComma(v)), TextStyle(fontSize = 8.sp, color = Color(0xFF9AA0AA)))
+                drawLine(Color(0xFFE8E1D4), Offset(gx, y), Offset(size.width - rightPad, y), 1f)
+                val t = textMeasurer.measure(AnnotatedString(fmtComma(v)), TextStyle(fontSize = 8.sp, color = Color(0xFF000000)))
                 drawText(t, topLeft = Offset(gx - t.size.width - 5.dp.toPx(), y - t.size.height / 2))
             }
 
@@ -173,7 +173,7 @@ private fun PivotChart(data: PivotData, chartType: String, modifier: Modifier = 
                             drawRoundRect(s.color, Offset(x + bw * 0.1f, baseY - h), Size(bw * 0.8f, h.coerceAtLeast(1.dp.toPx())), CornerRadius(3.dp.toPx()))
                         }
                     }
-                    val lt = textMeasurer.measure(AnnotatedString(data.labels[i]), TextStyle(fontSize = 8.sp, color = Color(0xFF9AA0AA)))
+                    val lt = textMeasurer.measure(AnnotatedString(data.labels[i]), TextStyle(fontSize = 8.sp, color = Color(0xFF000000)))
                     drawText(lt, topLeft = Offset(c - lt.size.width / 2, size.height - lt.size.height - 2.dp.toPx()))
                 }
             } else {
@@ -198,7 +198,7 @@ private fun PivotChart(data: PivotData, chartType: String, modifier: Modifier = 
                 }
                 data.labels.forEachIndexed { i, _ ->
                     val c = cx(i)
-                    val lt = textMeasurer.measure(AnnotatedString(data.labels[i]), TextStyle(fontSize = 8.sp, color = Color(0xFF9AA0AA)))
+                    val lt = textMeasurer.measure(AnnotatedString(data.labels[i]), TextStyle(fontSize = 8.sp, color = Color(0xFF000000)))
                     drawText(lt, topLeft = Offset(c - lt.size.width / 2, size.height - lt.size.height - 2.dp.toPx()))
                 }
             }
@@ -246,7 +246,7 @@ private fun PillGroup(label: String, options: List<Pair<String, String>>, select
                     Modifier.clip(RoundedCornerShape(50)).background(if (sel) HColors.Primary else Color.Transparent).clickable { onSelect(key) }.padding(horizontal = 12.dp, vertical = 6.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(lab, fontSize = 12.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal, color = if (sel) Color.White else HColors.TextSecondary)
+                    Text(lab, fontSize = 12.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal, color = Color(0xFF000000))
                 }
             }
         }

@@ -85,7 +85,7 @@ fun RangePills(
                     label,
                     fontSize = 13.sp,
                     fontWeight = if (sel) FontWeight.Bold else FontWeight.SemiBold,
-                    color = if (sel) Color.White else HColors.TextSecondary,
+                    color = Color(0xFF000000),
                 )
             }
         }
