@@ -72,7 +72,7 @@ fun VolumeBarChart(points: List<BarPoint>, modifier: Modifier = Modifier) {
                 if (p.value > 0) {
                     val t = textMeasurer.measure(
                         AnnotatedString(fmtComma(p.value)),
-                        style = TextStyle(fontSize = 8.sp, color = Color(0xFF000000)),
+                        style = TextStyle(fontSize = 8.sp, color = HColors.TextSecondary),
                     )
                     drawText(t, topLeft = Offset(cx - t.size.width / 2f, y - t.size.height - 3.dp.toPx()))
                 }

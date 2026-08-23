@@ -136,7 +136,7 @@ private fun DayCard(
                                 Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF000000),
+                                color = HColors.TextPrimary,
                             )
                         }
                     }
@@ -181,7 +181,7 @@ private fun DayCard(
                     .clickable(onClick = onDelete),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("✕", color = Color(0xFF000000), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                Text("✕", color = HColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
             }
         }
     }

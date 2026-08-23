@@ -30,8 +30,8 @@ object HColors {
     val Background = Color(0xFFF6F3E8)       // 奶油底
     val Card = Color(0xFFFFFFFF)             // 卡片（纯白）
     val Border = Color(0xFFE8E1D4)           // 分隔（暖米灰）
-    val TextPrimary = Color(0xFF000000)      // 纯黑（主文字）
-    val TextSecondary = Color(0xFF000000)    // 纯黑（次级文字）
+    val TextPrimary = Color(0xFF2B2B2B)      // 主文字（深灰黑）
+    val TextSecondary = Color(0xFF7A7F87)    // 次级文字（中灰）
 }
 
 /** 卡片圆角（区块化） */
@@ -47,21 +47,21 @@ val ChartPalette = listOf(
 
 private val LightColors = lightColorScheme(
     primary = HColors.Primary,
-    onPrimary = Color(0xFF000000),
+    onPrimary = HColors.TextPrimary,
     primaryContainer = HColors.PrimaryContainer,
-    onPrimaryContainer = Color(0xFF000000),
+    onPrimaryContainer = HColors.TextPrimary,
     secondary = HColors.Blue,
-    onSecondary = Color(0xFF000000),
+    onSecondary = HColors.TextPrimary,
     secondaryContainer = Color(0xFFDDF0F5),
-    onSecondaryContainer = Color(0xFF000000),
+    onSecondaryContainer = HColors.TextPrimary,
     tertiary = HColors.Green,
-    onTertiary = Color(0xFF000000),
+    onTertiary = HColors.TextPrimary,
     tertiaryContainer = Color(0xFFE1EFE9),
-    onTertiaryContainer = Color(0xFF000000),
+    onTertiaryContainer = HColors.TextPrimary,
     error = Color(0xFFD65C54),
-    onError = Color(0xFF000000),
+    onError = HColors.TextPrimary,
     errorContainer = Color(0xFFF6DFDC),
-    onErrorContainer = Color(0xFF000000),
+    onErrorContainer = HColors.TextPrimary,
     background = HColors.Background,
     onBackground = HColors.TextPrimary,
     surface = HColors.Card,

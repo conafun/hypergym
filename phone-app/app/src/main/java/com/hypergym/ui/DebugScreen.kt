@@ -67,8 +67,8 @@ fun DebugScreen(state: UiState, callbacks: AppCallbacks, modifier: Modifier = Mo
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DiagButton("重连", HColors.Primary, Color(0xFF000000), Modifier.weight(1f)) { callbacks.onReconnect() }
-                DiagButton("测试发送", HColors.Primary, Color(0xFF000000), Modifier.weight(1f)) { callbacks.onSendTest() }
+                DiagButton("重连", HColors.Primary, HColors.TextPrimary, Modifier.weight(1f)) { callbacks.onReconnect() }
+                DiagButton("测试发送", HColors.Primary, HColors.TextPrimary, Modifier.weight(1f)) { callbacks.onSendTest() }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DiagButton("清除", HColors.Card, HColors.TextPrimary, Modifier.weight(1f)) { callbacks.onClear() }
