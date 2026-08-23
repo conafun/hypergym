@@ -135,7 +135,7 @@ private fun GroupChips(selected: String, onSelect: (String) -> Unit) {
                 Text(
                     g,
                     Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
-                    color = if (sel) HColors.TextPrimary else HColors.TextSecondary,
+                    color = if (sel) Color.White else HColors.TextSecondary,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                 )
@@ -230,7 +230,7 @@ private fun ExerciseDetail(ex: Exercise, onBack: () -> Unit, modifier: Modifier 
                                 Modifier.padding(horizontal = 9.dp, vertical = 2.dp),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = HColors.TextPrimary,
+                                color = HColors.OnPrimaryContainer,
                             )
                         }
                         Text(

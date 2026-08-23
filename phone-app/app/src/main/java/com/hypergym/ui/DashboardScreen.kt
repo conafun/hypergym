@@ -41,7 +41,7 @@ import com.hypergym.data.StatsEngine
 import com.hypergym.data.TrainingDay
 import java.util.Calendar
 
-private val RestGray = Color(0xFFE8E1D4)
+private val RestGray = Color(0xFFEEF0F2)
 
 private fun shiftMonth(key: String, delta: Int): String {
     val y = key.substring(0, 4).toInt()
@@ -368,7 +368,7 @@ private fun HeatCell(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (trained) HColors.TextPrimary else HColors.TextSecondary)
+        Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (trained) Color.White else HColors.TextPrimary)
     }
 }
 
@@ -440,7 +440,7 @@ fun SetChip(text: String) {
             .clip(RoundedCornerShape(6.dp))
             .background(HColors.PrimaryContainer)
             .padding(horizontal = 6.dp, vertical = 2.dp),
-        color = HColors.TextPrimary,
+        color = Color(0xFF9A3412),
         fontSize = 11.sp,
         fontWeight = FontWeight.SemiBold,
     )
@@ -534,7 +534,7 @@ private fun MonthPickerRow(months: List<String>, selected: String, onSelect: (St
                 Text(
                     "${m.substring(5, 7).toInt()}月",
                     Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
-                    color = if (sel) HColors.TextPrimary else HColors.TextSecondary,
+                    color = if (sel) Color.White else HColors.TextSecondary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                 )

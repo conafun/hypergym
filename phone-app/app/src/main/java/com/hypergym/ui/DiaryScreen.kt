@@ -130,13 +130,13 @@ private fun DayCard(
                         )
                     }
                     if (prs != null) {
-                        Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFFFBE5DC), modifier = Modifier.padding(start = 6.dp)) {
+                        Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFFFFF3E0), modifier = Modifier.padding(start = 6.dp)) {
                             Text(
                                 "🏆 PR",
                                 Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = HColors.TextPrimary,
+                                color = Color(0xFFB45309),
                             )
                         }
                     }
@@ -177,11 +177,11 @@ private fun DayCard(
                 modifier = Modifier
                     .size(26.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFD65C54))
+                    .background(Color(0xFFE5484D))
                     .clickable(onClick = onDelete),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("✕", color = HColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                Text("✕", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
             }
         }
     }

@@ -23,7 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val WarnOrange = Color(0xFFFA734F)   // 珊瑚（警告/需注意）
+private val WarnOrange = Color(0xFFE07B00)   // 警告橙
 
 /** 传输页：状态/存储 + P/S 码日志 + 重连/测试发送/清除/数据目录/重扫目录 */
 @Composable
@@ -36,7 +36,7 @@ fun DebugScreen(state: UiState, callbacks: AppCallbacks, modifier: Modifier = Mo
 
         BlockCard {
             val statusColor = when {
-                state.status.contains("断开") || state.status.contains("失败") || state.status.contains("未找到") -> Color(0xFFD65C54)
+                state.status.contains("断开") || state.status.contains("失败") || state.status.contains("未找到") -> Color(0xFFBA1A1A)
                 state.status.contains("已连接") -> HColors.Green
                 else -> HColors.TextPrimary
             }
@@ -67,8 +67,8 @@ fun DebugScreen(state: UiState, callbacks: AppCallbacks, modifier: Modifier = Mo
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DiagButton("重连", HColors.Primary, HColors.TextPrimary, Modifier.weight(1f)) { callbacks.onReconnect() }
-                DiagButton("测试发送", HColors.Primary, HColors.TextPrimary, Modifier.weight(1f)) { callbacks.onSendTest() }
+                DiagButton("重连", HColors.Primary, Color.White, Modifier.weight(1f)) { callbacks.onReconnect() }
+                DiagButton("测试发送", HColors.Primary, Color.White, Modifier.weight(1f)) { callbacks.onSendTest() }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DiagButton("清除", HColors.Card, HColors.TextPrimary, Modifier.weight(1f)) { callbacks.onClear() }
