@@ -1,13 +1,23 @@
 var DEFAULT_EXERCISES = [
-  { name: '卧推',     minWt: 40, maxWt: 90, step: 5 },
-  { name: '杠铃深蹲', minWt: 40, maxWt: 90, step: 5 },
-  { name: '六角杠铃', minWt: 50, maxWt: 90, step: 5 },
-  { name: '哑铃',     minWt: 10, maxWt: 50, step: 2 },
-  { name: '高位下拉', minWt: 20, maxWt: 50, step: 2 },
-  { name: '坐姿划船', minWt: 20, maxWt: 50, step: 2 },
-  { name: '大剪刀',   minWt: 30, maxWt: 60, step: 5 },
-  { name: '倒蹬',     minWt: 40, maxWt: 80, step: 10},
-  { name: 'T杠划船',  minWt: 15, maxWt: 40, step: 5 }
+  { name: "哑铃", minWt: 20, maxWt: 60, step: 2 },
+  { name: "侧平举", minWt: 20, maxWt: 60, step: 2 },
+  { name: "卷腹", minWt: 10, maxWt: 50, step: 5 },
+  { name: "卧推", minWt: 40, maxWt: 90, step: 5 },
+  { name: "坐姿胸推", minWt: 20, maxWt: 90, step: 5 },
+  { name: "肩推", minWt: 20, maxWt: 50, step: 5 },
+  { name: "坐姿飞鸟", minWt: 20, maxWt: 50, step: 2 },
+  { name: "下斜胸推", minWt: 30, maxWt: 90, step: 5 },
+  { name: "胸推", minWt: 30, maxWt: 90, step: 5 },
+  { name: "高位下拉", minWt: 20, maxWt: 60, step: 2 },
+  { name: "大剪刀", minWt: 30, maxWt: 90, step: 5 },
+  { name: "高位划船", minWt: 20, maxWt: 90, step: 5 },
+  { name: "坐姿划船", minWt: 20, maxWt: 60, step: 2 },
+  { name: "俯身划船", minWt: 20, maxWt: 60, step: 5 },
+  { name: "杠铃深蹲", minWt: 50, maxWt: 80, step: 5 },
+  { name: "倒蹬", minWt: 30, maxWt: 60, step: 5 },
+  { name: "髋外展", minWt: 30, maxWt: 60, step: 2 },
+  { name: "髋内收", minWt: 30, maxWt: 60, step: 2 },
+  { name: "髋伸展", minWt: 30, maxWt: 60, step: 2 }
 ]
 
 var exercises = DEFAULT_EXERCISES

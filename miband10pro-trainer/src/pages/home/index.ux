@@ -474,7 +474,7 @@ export default {
 
   addToPlan: function() {
     if (this.planItems.length >= 10) { prompt.showToast({ message: '\u5df2\u8fbe\u4e0a\u965010\u9879' }); return }
-    this.planItems.push({ ex: this.exCurrent, wt: this.wtCurrent, setsDone: 0, setRecords: [] })
+    this.planItems.unshift({ ex: this.exCurrent, wt: this.wtCurrent, setsDone: 0, setRecords: [] })
     this.planCount = this.planItems.length
     this.planItems = this.planItems.slice()
     this._syncRecList()
