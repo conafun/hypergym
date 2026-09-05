@@ -5,6 +5,7 @@
       <!-- ===== 屏0 计划 ===== -->
       <div class="s1">
         <div class="plan-ex-area" ontouchstart="onExTouchStart" ontouchmove="onExTouchMove" ontouchend="onExTouchEnd">
+          <div class="cat-dot" style="background-color: {{catColor}}"></div>
           <text class="plan-ex-above">{{exAbove}}</text>
           <text class="plan-ex-current">{{exCurrent}}</text>
           <text class="plan-ex-below">{{exBelow}}</text>
@@ -152,7 +153,8 @@
   swiper { width: 336px; height: 480px; display: flex; flex-direction: column; indicator-size: 0; indicator-bottom: 0; indicator-color: transparent; }
 
   .s1 { width: 336px; height: 480px; background-color: #000000; display: flex; flex-direction: column; align-items: center; }
-  .plan-ex-area { width: 336px; height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 30px; }
+  .plan-ex-area { width: 336px; height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 30px; position: relative; }
+  .cat-dot { position: absolute; left: 14px; top: 24px; width: 14px; height: 14px; border-radius: 7px; }
   .plan-ex-above { font-size: 20px; color: #333333; font-weight: 500; margin-bottom: 6px; }
   .plan-ex-current { font-size: 52px; color: #ffffff; font-weight: 700; }
   .plan-ex-below { font-size: 20px; color: #333333; font-weight: 500; margin-top: 6px; }
@@ -177,7 +179,7 @@
   .rec-count-btn { height: 90px; display: flex; align-items: center; justify-content: center; border-radius: 24px; background-color: #30d158; padding: 0 44px; flex-shrink: 0; }
   .rec-count-btn-text { font-size: 28px; color: #ffffff; font-weight: 700; }
   .rec-count-btn-cancel { background-color: #111111; border-width: 2px; border-style: solid; border-color: #333333; }
-  .rec-content { width: 336px; display: flex; flex-direction: column; flex-grow: 1; overflow: scroll; }
+  .rec-content { width: 336px; display: flex; flex-direction: column; flex-grow: 1; overflow: scroll; min-height: 0; }
   .rec-list { width: 336px; display: flex; flex-direction: column; padding: 8px 14px; }
   .rec-item { width: 308px; display: flex; flex-direction: column; padding: 14px 20px; margin: 0 0 8px 0; background-color: #111111; border-radius: 14px; }
   .rec-item-editing { background-color: #1a1a1a; }
@@ -195,11 +197,11 @@
   .rec-edit-confirm-text { font-size: 22px; color: #ffffff; font-weight: 700; }
   .rec-edit-del { height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 14px; background-color: #ff3b30; padding: 0 24px; margin: 0 6px; }
   .rec-edit-del-text { font-size: 22px; color: #ffffff; font-weight: 700; }
-  .rec-empty { width: 336px; display: flex; flex-direction: column; flex-grow: 1; }
+  .rec-empty { width: 336px; display: flex; flex-direction: column; flex-grow: 1; min-height: 0; }
   .rec-empty-mid { width: 336px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; }
   .rec-empty-text { font-size: 16px; color: #444444; font-weight: 500; }
   .rec-empty-sub { font-size: 13px; color: #333333; margin-top: 6px; }
-  .rec-bottom { width: 336px; height: 100px; display: flex; align-items: center; justify-content: center; }
+  .rec-bottom { width: 336px; height: 100px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
   .rec-btn-end { height: 72px; display: flex; align-items: center; justify-content: center; border-radius: 18px; background-color: #ff3b30; padding: 0 44px; }
   .rec-btn-end-text { font-size: 26px; color: #ffffff; font-weight: 700; }
 
@@ -253,8 +255,6 @@ import dataModule from '../../common/data'
 import fileIO from '../../common/file-io'
 import icClient from '../../common/interconnect-client'
 
-var exercises = dataModule.getExerciseNames()
-
 function pad2(n) { return (n < 10 ? '0' : '') + n }
 
 export default {
@@ -263,6 +263,7 @@ export default {
     exAbove: '',
     exCurrent: '',
     exBelow: '',
+    catColor: '#9CCFBF',
     wtCurrent: 0,
     swiperPage: 0,
     planItems: [],
@@ -419,43 +420,79 @@ export default {
     if (items.length === 0) { this.todayEmpty = true; this.todayItems = []; this.todayVol = 0 }
   },
 
-  _initPlan: function() { this.int_exIdx = 0; this._updateWeights(); this._updateExDisplay() },
+  _initPlan: function() {
+    this.int_groups = dataModule.getGroups()
+    if (!this.int_groups.length) { this.int_groups = ['其他'] }
+    this._applyCat(0)
+  },
+
+  // 应用某一级部位：取出该部位动作、重置动作下标、刷新圆点颜色与显示
+  _applyCat: function(idx) {
+    this.int_catIdx = idx
+    this.int_exNames = dataModule.getExercisesByGroup(this.int_groups[idx])
+    this.int_exIdx = 0
+    this.catColor = dataModule.getGroupColor(this.int_groups[idx])
+    this._updateExDisplay()
+    this._updateWeights()
+  },
 
   _updateWeights: function() {
-    var ex = exercises[this.int_exIdx]
+    var ex = this.int_exNames[this.int_exIdx]
     this.int_weights = dataModule.getWeights(ex)
     this.int_wtIdx = Math.min(1, this.int_weights.length - 1)
     this.wtCurrent = this.int_weights.length > 0 ? this.int_weights[this.int_wtIdx] : 0
   },
 
   _updateExDisplay: function() {
-    var len = exercises.length
-    this.exCurrent = exercises[this.int_exIdx]
-    this.exAbove = exercises[(this.int_exIdx - 1 + len) % len]
-    this.exBelow = exercises[(this.int_exIdx + 1) % len]
+    var len = this.int_exNames.length
+    if (len === 0) { this.exCurrent = ''; this.exAbove = ''; this.exBelow = ''; return }
+    this.exCurrent = this.int_exNames[this.int_exIdx]
+    this.exAbove = this.int_exNames[(this.int_exIdx - 1 + len) % len]
+    this.exBelow = this.int_exNames[(this.int_exIdx + 1) % len]
   },
 
-  onExTouchStart: function(e) { var t = (e && e.touches && e.touches[0]) || (e && e.changedTouches && e.changedTouches[0]); this.int_touchStartY = t ? (t.clientY || t.screenY || 0) : 0 },
+  // 顶部动作区统一触摸：按起点 X 判断 左半=一级(部位) / 右半=二级(动作)
+  onExTouchStart: function(e) {
+    var t = (e && e.touches && e.touches[0]) || (e && e.changedTouches && e.changedTouches[0])
+    this.int_touchStartY = t ? (t.clientY || t.screenY || 0) : 0
+    this.int_touchStartX = t ? (t.clientX || t.screenX || 0) : 0
+    this.int_selKind = (this.int_touchStartX < 168) ? 'cat' : 'ex'
+  },
   onExTouchMove: function(e) {
     if (!e || !e.touches || !e.touches[0]) return
     var dy = e.touches[0].clientY - this.int_touchStartY
     if (Math.abs(dy) > 60) {
-      if (dy > 0) this.prevEx(); else this.nextEx()
+      if (this.int_selKind === 'cat') { if (dy > 0) this.prevCat(); else this.nextCat() }
+      else { if (dy > 0) this.prevEx(); else this.nextEx() }
       this.int_touchStartY = e.touches[0].clientY
     }
   },
   onExTouchEnd: function() {},
 
   prevEx: function() {
-    var len = exercises.length
+    var len = this.int_exNames.length
+    if (len === 0) return
     this.int_exIdx = (this.int_exIdx - 1 + len) % len
     this._updateExDisplay(); this._updateWeights()
   },
 
   nextEx: function() {
-    var len = exercises.length
+    var len = this.int_exNames.length
+    if (len === 0) return
     this.int_exIdx = (this.int_exIdx + 1) % len
     this._updateExDisplay(); this._updateWeights()
+  },
+
+  prevCat: function() {
+    var len = this.int_groups.length
+    if (len === 0) return
+    this._applyCat((this.int_catIdx - 1 + len) % len)
+  },
+
+  nextCat: function() {
+    var len = this.int_groups.length
+    if (len === 0) return
+    this._applyCat((this.int_catIdx + 1) % len)
   },
 
   prevWt: function() {
