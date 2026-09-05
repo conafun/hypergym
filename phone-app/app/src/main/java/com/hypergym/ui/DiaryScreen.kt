@@ -15,6 +15,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -87,7 +88,7 @@ fun DiaryScreen(
 @Composable
 private fun DayCard(
     day: TrainingDay,
-    prs: List<String>?,
+    prs: List<StatsEngine.PrFlag>?,
     editing: Boolean,
     onToggleEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -129,17 +130,6 @@ private fun DayCard(
                             color = HColors.TextSecondary,
                         )
                     }
-                    if (prs != null) {
-                        Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFFFFF3E0), modifier = Modifier.padding(start = 6.dp)) {
-                            Text(
-                                "🏆 PR",
-                                Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFB45309),
-                            )
-                        }
-                    }
                     Spacer(Modifier.weight(1f))
                     Text(
                         "${fmtComma(day.totalVolume())} kg",
@@ -147,6 +137,16 @@ private fun DayCard(
                         fontWeight = FontWeight.ExtraBold,
                         color = HColors.Primary,
                     )
+                }
+                // PR 明细：列出当天打破纪录的具体动作与数值（区分重量纪录 / 预估力量纪录）
+                if (prs != null && prs.isNotEmpty()) {
+                    FlowRow(
+                        Modifier.fillMaxWidth().padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        prs.forEach { PrChip(it) }
+                    }
                 }
                 // 动作明细：固定高度（完整显示 3 个动作），超出部分卡片内上下滚动
                 Column(
@@ -184,5 +184,17 @@ private fun DayCard(
                 Text("✕", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
             }
         }
+    }
+}
+
+/** PR 小标签：为真实重量纪录（橙色 🏆） */
+@Composable
+private fun PrChip(flag: StatsEngine.PrFlag) {
+    Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFFFFF3E0)) {
+        Text(
+            "🏆 ${flag.exercise} ${StatsEngine.fmtDouble(flag.value)}kg",
+            Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFFB45309),
+        )
     }
 }

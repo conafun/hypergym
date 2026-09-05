@@ -230,32 +230,25 @@ object StatsEngine {
 
     // ---------------- PR 检测 ----------------
 
+    /** 一条 PR 标记：某动作打破历史最佳的真实举重纪录 */
+    data class PrFlag(val exercise: String, val value: Double)
+
     /**
-     * 每个动作的全时段纪录：最大重量、最大 e1RM（Epley：重量×(1+次数/30)）。
-     * 只标记「打破此前的纪录」的日子（首次记录不算 PR）。
-     * 返回：date → PR 描述列表。
+     * 每个动作的全时段「真实最大举重」纪录。
+     * 只标记「打破此前纪录」的日子（首次记录不算 PR）。
+     * 返回：date → 该日 PR 列表（动作 + 数值）。
      */
-    fun prFlags(days: List<TrainingDay>): Map<String, List<String>> {
+    fun prFlags(days: List<TrainingDay>): Map<String, List<PrFlag>> {
         val sorted = days.sortedBy { it.date }
         val bestWeight = HashMap<String, Double>()
-        val bestE1rm = HashMap<String, Double>()
-        val out = LinkedHashMap<String, MutableList<String>>()
+        val out = LinkedHashMap<String, MutableList<PrFlag>>()
         for (day in sorted) {
-            val prs = mutableListOf<String>()
+            val prs = mutableListOf<PrFlag>()
             for (ex in day.records) {
                 if (ex.sets.isEmpty()) continue
-                val maxReps = ex.sets.maxOf { it.reps }
-                val e1rm = ex.weight * (1.0 + maxReps / 30.0)
                 val bw = bestWeight[ex.exercise]
-                val be = bestE1rm[ex.exercise]
-                if (bw != null && ex.weight > bw) {
-                    prs.add("${ex.exercise} 重量PR ${fmtDouble(ex.weight)}kg")
-                }
-                if (be != null && e1rm > be) {
-                    prs.add("${ex.exercise} 力量PR ${fmtDouble(e1rm)}kg")
-                }
+                if (bw != null && ex.weight > bw) prs.add(PrFlag(ex.exercise, ex.weight))
                 if (bw == null || ex.weight > bw) bestWeight[ex.exercise] = ex.weight
-                if (be == null || e1rm > be) bestE1rm[ex.exercise] = e1rm
             }
             if (prs.isNotEmpty()) out[day.date] = prs
         }

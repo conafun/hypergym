@@ -68,26 +68,42 @@ fun PivotCard(days: List<TrainingDay>, modifier: Modifier = Modifier) {
     var mode by remember { mutableStateOf("单项") }
     var detail by remember { mutableStateOf("动作") }
     var chartType by remember { mutableStateOf("柱状") }
+    // 图例筛选：null=全部显示；非空=仅显示选中序列
+    var selectedSeries by remember { mutableStateOf<String?>(null) }
 
     val data = remember(days, dim, metric, agg, mode, detail) {
         buildPivot(days, dim, metric, agg, mode, detail)
     }
+    // 当前生效的选中项（当数据维度变化导致该序列不存在时自动回落为全部显示）
+    val selName = selectedSeries?.takeIf { s -> data.series.any { it.name == s } }
 
     BlockCard(modifier) {
         CardTitle("数据透视")
         Spacer(Modifier.height(2.dp))
         Text("X轴：$dim ｜ Y轴：$metric · $agg", fontSize = 11.sp, color = HColors.TextSecondary)
 
-        PivotChart(data, chartType, Modifier.padding(top = 8.dp))
+        PivotChart(data, chartType, selName, Modifier.padding(top = 8.dp))
 
-        // 多系列图例
+        // 多系列图例（可点选筛选：点某项只显示该项，再点恢复全部）
         if (data.series.size > 1) {
             Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Text(
+                    if (selName == null) "点击图例可筛选单项" else "已筛选：$selName",
+                    fontSize = 9.sp, color = HColors.TextSecondary,
+                )
+            }
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 data.series.forEach { s ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        LegendDot(s.color)
-                        Text(s.name, fontSize = 11.sp, color = HColors.TextSecondary)
+                    val isSelected = selName == s.name
+                    val dimmed = selName != null && !isSelected
+                    Row(
+                        Modifier.clip(RoundedCornerShape(50)).clickable { selectedSeries = if (isSelected) null else s.name }.padding(horizontal = 4.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        LegendDot(if (dimmed) s.color.copy(alpha = 0.4f) else s.color)
+                        Text(s.name, fontSize = 11.sp, color = if (isSelected) HColors.Primary else if (dimmed) HColors.TextSecondary.copy(alpha = 0.5f) else HColors.TextSecondary, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
                     }
                 }
             }
@@ -116,13 +132,15 @@ fun PivotCard(days: List<TrainingDay>, modifier: Modifier = Modifier) {
 // ---------------- 图表 ----------------
 
 @Composable
-private fun PivotChart(data: PivotData, chartType: String, modifier: Modifier = Modifier) {
+private fun PivotChart(data: PivotData, chartType: String, selected: String?, modifier: Modifier = Modifier) {
     val textMeasurer = rememberTextMeasurer()
     val progress = remember { Animatable(0f) }
     LaunchedEffect(data) {
         progress.snapTo(0f)
         progress.animateTo(1f, tween(550, easing = LinearOutSlowInEasing))
     }
+    // 图例筛选后的可见序列：selected 为 null 显示全部，否则仅显示选中项
+    val visible = if (selected != null) data.series.filter { it.name == selected } else data.series
     val scroll = rememberScrollState()
     val n = data.labels.size
     val slotW = 30.dp
@@ -130,8 +148,8 @@ private fun PivotChart(data: PivotData, chartType: String, modifier: Modifier = 
 
     Box(modifier.fillMaxWidth().horizontalScroll(scroll)) {
         Canvas(Modifier.width(chartWidth).height(180.dp)) {
-            if (n == 0 || data.series.isEmpty() || data.series.all { it.values.isEmpty() }) return@Canvas
-            val maxV = (data.series.flatMap { it.values }.maxOrNull() ?: 0.0).let { if (it <= 0.0) 1.0 else it }
+            if (n == 0 || visible.isEmpty() || visible.all { it.values.isEmpty() }) return@Canvas
+            val maxV = (visible.flatMap { it.values }.maxOrNull() ?: 0.0).let { if (it <= 0.0) 1.0 else it }
             val leftPad = 38.dp.toPx()
             val rightPad = 8.dp.toPx()
             val topPad = 12.dp.toPx()
@@ -157,7 +175,7 @@ private fun PivotChart(data: PivotData, chartType: String, modifier: Modifier = 
             if (chartType == "柱状") {
                 data.labels.forEachIndexed { i, _ ->
                     val c = cx(i)
-                    val series = data.series
+                    val series = visible
                     if (series.size == 1) {
                         val v = series[0].values[i]
                         val h = (v / maxV).toFloat() * plotH * step
@@ -179,7 +197,7 @@ private fun PivotChart(data: PivotData, chartType: String, modifier: Modifier = 
             } else {
                 val totalSlots = (n - 1).coerceAtLeast(1)
                 val reveal = step * totalSlots
-                data.series.forEach { s ->
+                visible.forEach { s ->
                     var prev: Offset? = null
                     data.labels.forEachIndexed { i, _ ->
                         val cur = Offset(cx(i), yOf(i, s.values[i]))

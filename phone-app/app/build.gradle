@@ -6,6 +6,32 @@ plugins {
 def keystorePropertiesFile = rootProject.file("keystore.properties")
 def keystoreProperties = new Properties()
 keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+
+// ---- 自动递增版本号：每次 release 构建自动 versionCode+1 / patch+1，并写回 version.properties ----
+def versionPropsFile = rootProject.file('version.properties')
+def versionProps = new Properties()
+if (versionPropsFile.exists()) {
+    versionProps.load(new FileInputStream(versionPropsFile))
+}
+def verCode = (versionProps.getProperty('versionCode') ?: '7') as int
+def verMajor = (versionProps.getProperty('versionMajor') ?: '3') as int
+def verMinor = (versionProps.getProperty('versionMinor') ?: '1') as int
+def verPatch = (versionProps.getProperty('versionPatch') ?: '0') as int
+def runTasks = gradle.startParameter.taskNames
+def isReleaseBuild = runTasks.any { it.contains('assembleRelease') || it.contains('bundleRelease') || it.contains('packageRelease') }
+if (isReleaseBuild) {
+    verCode += 1
+    verPatch += 1
+    def props = new Properties()
+    props.setProperty('versionCode', verCode.toString())
+    props.setProperty('versionMajor', verMajor.toString())
+    props.setProperty('versionMinor', verMinor.toString())
+    props.setProperty('versionPatch', verPatch.toString())
+    versionPropsFile.withWriter { w -> props.store(w, 'Auto-incremented by release build') }
+    println "==> Version auto-bumped: versionCode=${verCode} versionName=${verMajor}.${verMinor}.${verPatch}"
+}
+def verName = "${verMajor}.${verMinor}.${verPatch}"
+
 android {
     namespace "com.hypergym"
     compileSdkVersion 36
@@ -15,8 +41,8 @@ android {
         applicationId "com.hypergym"
         minSdkVersion 21
         targetSdkVersion 30
-        versionCode 7
-        versionName "3.1"
+        versionCode verCode
+        versionName verName
     }
 
     signingConfigs {
