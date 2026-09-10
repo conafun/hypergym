@@ -1,6 +1,7 @@
 {
   "name": "miband10pro-trainer",
   "version": "1.0.0",
+  "license": "MIT",
   "description": "小米手环10 Pro 力量训练快应用",
   "engines": {
     "node": ">=8.10"

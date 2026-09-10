@@ -445,6 +445,7 @@ npm run release  # 发布 rpk 包（必须用 release，见下方警告）
 - 手环端打包固定使用 `npm run release`（只有 production 模式才用与手机一致的正式证书）
 - 🐞 **修复**：一度误用 `npm run build`，rpk 被 aiot-toolkit 内置调试证书签名，导致手环与手机**完全无法通信**；现已修复并加装强制校验，详见 [`SIGNING.md`](SIGNING.md)
 - 二进制安装包不再入库（`.gitignore` 新增 `*.rpk`、`dist/`、`.temp_*/`）
+- **开源协议改为 [MIT](LICENSE)**（新增 `LICENSE` 文件；`miband10pro-trainer/package.json` 增加 `"license": "MIT"`）
 
 ---
 
@@ -457,4 +458,14 @@ npm run release  # 发布 rpk 包（必须用 release，见下方警告）
 
 ## 许可证
 
-本项目为个人学习/研究用途。如需引用或合作，请联系作者。
+本项目采用 **[MIT License](LICENSE)** 开源。
+
+```
+MIT License
+
+Copyright (c) 2026 conafun
+```
+
+> ⚠️ **例外**：`diag-band/`、`interconnect-demo-build/`、`miband10pro-trainer/node_modules/`、`.research/`
+> 中可能包含小米官方示例代码与本机构建工具链，**不在本项目的 MIT 授权范围内**，版权归各自作者所有。
+> 你在使用/再分发这些部分时，请遵守其原始授权条款。
