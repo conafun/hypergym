@@ -36,7 +36,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hypergym.data.ExerciseRecord
 import com.hypergym.data.StatsEngine
 import com.hypergym.data.TrainingDay
 import java.util.Calendar
@@ -376,6 +375,7 @@ private fun HeatCell(
 
 @Composable
 private fun DayContentCard(day: TrainingDay?, date: String, today: String) {
+    val groups = remember(day) { day?.records?.let { groupByExercise(it) } ?: emptyList() }
     BlockCard {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             CardTitle(if (date == today) "今天 · ${DateUtils.weekdayLabel(date)}" else "$date · ${DateUtils.weekdayLabel(date)}")
@@ -386,64 +386,15 @@ private fun DayContentCard(day: TrainingDay?, date: String, today: String) {
                 fontWeight = FontWeight.ExtraBold,
             )
         }
-        if (day == null || day.records.isEmpty()) {
+        if (groups.isEmpty()) {
             Text("无训练记录", color = HColors.TextSecondary, fontSize = 13.sp, modifier = Modifier.padding(vertical = 20.dp))
         } else {
-            day.records.forEachIndexed { i, ex ->
+            groups.forEachIndexed { i, g ->
                 if (i > 0) HorizontalDivider(color = HColors.Border)
-                ExerciseRow(ex)
+                ExerciseGroupRow(g)
             }
         }
     }
-}
-
-@Composable
-fun ExerciseRow(ex: ExerciseRecord) {
-    Column(Modifier.padding(vertical = 5.dp)) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                ex.exercise,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = HColors.TextPrimary,
-                modifier = Modifier.weight(1f),
-            )
-            Text("${ex.weight}kg × ${ex.sets.size}组", fontSize = 12.sp, color = HColors.TextSecondary)
-        }
-        Row(
-            Modifier.fillMaxWidth().padding(top = 3.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                ex.sets.forEach { s -> SetChip("${s.reps}次") }
-                Text(
-                    "容量 ${fmtComma(ex.sets.sumOf { it.volume })} kg",
-                    fontSize = 11.sp,
-                    color = HColors.Primary,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun SetChip(text: String) {
-    Text(
-        text,
-        Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(HColors.PrimaryContainer)
-            .padding(horizontal = 6.dp, vertical = 2.dp),
-        color = Color(0xFF9A3412),
-        fontSize = 11.sp,
-        fontWeight = FontWeight.SemiBold,
-    )
 }
 
 // ---------------- 英雄卡 / 统计 / 趋势 ----------------

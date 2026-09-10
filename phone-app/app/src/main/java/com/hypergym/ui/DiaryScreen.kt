@@ -93,6 +93,8 @@ private fun DayCard(
     onToggleEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    // 同一动作不同重量合并成一组，与「数据页」的展示方式保持一致
+    val groups = remember(day) { groupByExercise(day.records) }
     val shake = rememberInfiniteTransition(label = "shake")
     val angle by shake.animateFloat(
         initialValue = -2f,
@@ -156,9 +158,9 @@ private fun DayCard(
                         .height(216.dp)
                         .verticalScroll(rememberScrollState()),
                 ) {
-                    day.records.forEachIndexed { i, ex ->
+                    groups.forEachIndexed { i, g ->
                         if (i > 0) HorizontalDivider(color = HColors.Border)
-                        ExerciseRow(ex)
+                        ExerciseGroupRow(g)
                     }
                 }
             }

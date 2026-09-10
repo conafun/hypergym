@@ -12,7 +12,7 @@
         </div>
         <div class="plan-wt-area">
           <div class="plan-wt-btn" onclick="prevWt"><text class="plan-wt-arr">‹</text></div>
-          <text class="plan-wt-val" onlongpress="exitApp">{{wtCurrent}}</text>
+          <text class="plan-wt-val" style="font-size: {{wtFontSize}}" onlongpress="exitApp">{{wtText}}</text>
           <div class="plan-wt-btn" onclick="nextWt"><text class="plan-wt-arr">›</text></div>
         </div>
         <div class="plan-spacer"></div>
@@ -27,7 +27,7 @@
       <!-- ===== 屏1 记录列表 ===== -->
       <div class="s2">
         <div class="rec-count-wrap" if="{{isCounting}}">
-          <text class="rec-count-ex">{{countEx}} {{countWt}}kg</text>
+          <text class="rec-count-ex">{{countEx}} {{countWtText}}</text>
           <div class="rec-count-row">
             <div class="plan-wt-btn" onclick="decCount"><text class="plan-wt-arr">-</text></div>
             <text class="rec-count-num">{{countReps}}</text>
@@ -55,14 +55,14 @@
                 <text class="rec-item-ex">{{$item.ex}}</text>
               </div>
               <div class="rec-item-row2">
-                <text class="rec-item-wt">{{$item.wt}}kg</text>
+                <text class="rec-item-wt">{{$item.wtText}}</text>
                 <text class="rec-item-sets">{{$item.setsDone}}</text>
               </div>
             </div>
             <div if="{{$item.editing}}" class="rec-item rec-item-editing">
               <div class="rec-edit-top">
                 <div class="rec-edit-btn" onclick="onWtDec($idx)"><text class="rec-edit-sym">-</text></div>
-                <text class="rec-edit-wt">{{$item.wt}}kg</text>
+                <text class="rec-edit-wt">{{$item.wtText}}</text>
                 <div class="rec-edit-btn" onclick="onWtInc($idx)"><text class="rec-edit-sym">+</text></div>
               </div>
               <div class="rec-edit-actions">
@@ -101,7 +101,7 @@
           <text class="today-title">今日训练</text>
           <div class="today-ex" for="{{todayItems}}">
             <text class="today-ex-name">{{$item.name}}</text>
-            <text class="today-ex-data">{{$item.wt}}×{{$item.reps}}={{$item.vol}}kg</text>
+            <text class="today-ex-data">{{$item.data}}</text>
           </div>
         </div>
         <div class="today-total" if="{{!todayEmpty}}">
@@ -161,7 +161,7 @@
   .plan-wt-area { width: 336px; height: 100px; display: flex; flex-direction: row; align-items: center; justify-content: center; margin-top: 20px; }
   .plan-wt-btn { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 25px; background-color: #111111; }
   .plan-wt-arr { font-size: 28px; color: #666666; font-weight: 600; }
-  .plan-wt-val { font-size: 64px; color: #ffffff; font-weight: 700; margin: 0 20px; }
+  .plan-wt-val { color: #ffffff; font-weight: 700; margin: 0 20px; }
   .plan-spacer { flex-grow: 1; }
   .plan-buttons { width: 336px; display: flex; flex-direction: row; align-items: center; justify-content: center; padding: 20px; }
   .plan-btn-text { font-size: 28px; color: #ffffff; font-weight: 700; }
@@ -265,6 +265,8 @@ export default {
     exBelow: '',
     catColor: '#9CCFBF',
     wtCurrent: 0,
+    wtText: '',
+    wtFontSize: '64px',
     swiperPage: 0,
     planItems: [],
     recListItems: [],
@@ -276,6 +278,7 @@ export default {
     countIdx: -1,
     countEx: '',
     countWt: 0,
+    countWtText: '',
     countReps: 10,
     logItems: [],
     logEmpty: true,
@@ -412,7 +415,10 @@ export default {
       if (!r || !r.sets) continue
       var vol = 0; var totalSets = r.sets.length; var totalReps = 0
       for (var j = 0; j < r.sets.length; j++) { totalReps += r.sets[j].reps || 0; vol += r.sets[j].volume || 0 }
-      items.push({ name: r.exercise, wt: r.weight, sets: totalSets, reps: totalReps, vol: vol })
+      var dataTxt = (r.weight === 0)
+        ? ('自重\u00d7' + totalReps + ' (' + totalSets + '\u7ec4)')
+        : (r.weight + '\u00d7' + totalReps + '=' + vol + 'kg')
+      items.push({ name: r.exercise, wt: r.weight, sets: totalSets, reps: totalReps, vol: vol, data: dataTxt })
       totalVol += vol
     }
     this.todayItems = items
@@ -439,8 +445,18 @@ export default {
   _updateWeights: function() {
     var ex = this.int_exNames[this.int_exIdx]
     this.int_weights = dataModule.getWeights(ex)
-    this.int_wtIdx = Math.min(1, this.int_weights.length - 1)
+    // 自重动作默认停在「自重」(下标 0)；其他动作默认停在第 2 项
+    this.int_wtIdx = (this.int_weights.length > 0 && this.int_weights[0] === 0) ? 0 : Math.min(1, this.int_weights.length - 1)
     this.wtCurrent = this.int_weights.length > 0 ? this.int_weights[this.int_wtIdx] : 0
+    this._applyWtText()
+  },
+
+  // 「自重」两个汉字是满格方块字，同样字号下比数字显得更大更宽；
+  // 因此给它小一号（48px），数字维持 64px，两者视觉大小才接近。
+  _applyWtText: function() {
+    var bw = (this.wtCurrent === 0)
+    this.wtText = bw ? '自重' : '' + this.wtCurrent
+    this.wtFontSize = bw ? '48px' : '64px'
   },
 
   _updateExDisplay: function() {
@@ -500,6 +516,7 @@ export default {
     if (len === 0) return
     this.int_wtIdx = (this.int_wtIdx - 1 + len) % len
     this.wtCurrent = this.int_weights[this.int_wtIdx]
+    this._applyWtText()
   },
 
   nextWt: function() {
@@ -507,6 +524,7 @@ export default {
     if (len === 0) return
     this.int_wtIdx = (this.int_wtIdx + 1) % len
     this.wtCurrent = this.int_weights[this.int_wtIdx]
+    this._applyWtText()
   },
 
   addToPlan: function() {
@@ -530,7 +548,7 @@ export default {
       var cls = 'rec-item'
       if (i === edIdx) cls = 'rec-item rec-item-editing'
       list.push({
-        ex: it.ex, wt: it.wt, setsDone: it.setsDone || 0,
+        ex: it.ex, wt: it.wt, wtText: (it.wt === 0 ? '自重' : it.wt + 'kg'), setsDone: it.setsDone || 0,
         editing: i === edIdx,
         cls: cls
       })
@@ -553,6 +571,7 @@ export default {
     this.countIdx = idx
     this.countEx = item.ex
     this.countWt = item.wt
+    this.countWtText = (item.wt === 0 ? '自重' : item.wt + 'kg')
     this.countReps = 10
     vibrator.vibrate({ mode: 'short' })
   },
@@ -673,6 +692,13 @@ export default {
   onWtDec: function(idx) {
     var item = this.planItems[idx]
     if (!item || item.wt <= 0) return
+    // 自重动作：从最小配重再减一下回到「自重」
+    if (dataModule.isBodyweight(item.ex) && item.wt === dataModule.getMinWeight(item.ex)) {
+      item.wt = 0
+      this.planItems = this.planItems.slice()
+      this._syncRecList()
+      return
+    }
     var step = dataModule.getStep(item.ex)
     item.wt -= step
     if (item.wt < 0) item.wt = 0
@@ -683,6 +709,13 @@ export default {
   onWtInc: function(idx) {
     var item = this.planItems[idx]
     if (!item) return
+    // 自重动作：从「自重」加一下就是最小配重，之后按步幅递增
+    if (dataModule.isBodyweight(item.ex) && item.wt === 0) {
+      item.wt = dataModule.getMinWeight(item.ex)
+      this.planItems = this.planItems.slice()
+      this._syncRecList()
+      return
+    }
     var step = dataModule.getStep(item.ex)
     item.wt += step
     this.planItems = this.planItems.slice()
@@ -757,7 +790,8 @@ export default {
         if (!r2 || !r2.sets) continue
         var tr2 = 0, tv2 = 0
         for (var si2 = 0; si2 < r2.sets.length; si2++) { tr2 += r2.sets[si2].reps || 0; tv2 += r2.sets[si2].volume || 0 }
-        items.push({ cls: 'log-row', lc: 'log-ex-name', rc: 'log-ex-val', left: r2.exercise, right: r2.weight + '\u00d7' + tr2 + '=' + tv2 + 'kg' })
+        var rightTxt = (r2.weight === 0) ? ('自重\u00d7' + tr2 + '\u00b7' + r2.sets.length + '\u7ec4') : (r2.weight + '\u00d7' + tr2 + '=' + tv2 + 'kg')
+        items.push({ cls: 'log-row', lc: 'log-ex-name', rc: 'log-ex-val', left: r2.exercise, right: rightTxt })
       }
       items.push({ cls: 'log-sep', lc: 'log-sep-text', rc: 'log-sep-text', left: ' ', right: ' ' })
     }

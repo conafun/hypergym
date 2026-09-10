@@ -6,10 +6,12 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,6 +26,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +39,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -48,6 +52,8 @@ import com.hypergym.data.MuscleMap
 import com.hypergym.data.StatsEngine
 import com.hypergym.data.TrainingDay
 import java.util.Calendar
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 
 private val DIM_OPTIONS = listOf("日期" to "日期", "周" to "周", "肌群" to "肌群", "动作" to "动作")
 private val METRIC_OPTIONS = listOf(
@@ -76,13 +82,32 @@ fun PivotCard(days: List<TrainingDay>, modifier: Modifier = Modifier) {
     }
     // 当前生效的选中项（当数据维度变化导致该序列不存在时自动回落为全部显示）
     val selName = selectedSeries?.takeIf { s -> data.series.any { it.name == s } }
+    // 图上点选的槽位（null=未选中）；数据一变就清空，避免指向已不存在的点
+    var selectedIndex by remember(data) { mutableStateOf<Int?>(null) }
+    // 图表与读数区共用同一份可见序列，保证口径一致
+    val visibleSeries = if (selName != null) data.series.filter { it.name == selName } else data.series
 
     BlockCard(modifier) {
         CardTitle("数据透视")
         Spacer(Modifier.height(2.dp))
         Text("X轴：$dim ｜ Y轴：$metric · $agg", fontSize = 11.sp, color = HColors.TextSecondary)
 
-        PivotChart(data, chartType, selName, Modifier.padding(top = 8.dp))
+        PivotChart(
+            data = data,
+            visible = visibleSeries,
+            chartType = chartType,
+            selectedIndex = selectedIndex,
+            onSelectIndex = { i -> selectedIndex = if (selectedIndex == i) null else i },
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        val picked = selectedIndex?.takeIf { it in data.labels.indices }
+        if (picked != null) {
+            Spacer(Modifier.height(10.dp))
+            PivotReadout(data, visibleSeries, picked)
+        } else if (data.labels.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text("点击图表可查看某一点的具体数值", fontSize = 9.sp, color = HColors.TextSecondary)
+        }
 
         // 多系列图例（可点选筛选：点某项只显示该项，再点恢复全部）
         if (data.series.size > 1) {
@@ -132,26 +157,53 @@ fun PivotCard(days: List<TrainingDay>, modifier: Modifier = Modifier) {
 // ---------------- 图表 ----------------
 
 @Composable
-private fun PivotChart(data: PivotData, chartType: String, selected: String?, modifier: Modifier = Modifier) {
+private fun PivotChart(
+    data: PivotData,
+    visible: List<PivotSeries>,
+    chartType: String,
+    selectedIndex: Int?,
+    onSelectIndex: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val textMeasurer = rememberTextMeasurer()
     val progress = remember { Animatable(0f) }
     LaunchedEffect(data) {
         progress.snapTo(0f)
         progress.animateTo(1f, tween(550, easing = LinearOutSlowInEasing))
     }
-    // 图例筛选后的可见序列：selected 为 null 显示全部，否则仅显示选中项
-    val visible = if (selected != null) data.series.filter { it.name == selected } else data.series
     val scroll = rememberScrollState()
+    // 与「动作数据汇总」保持一致：数据变化后默认滚到最右端，优先展示最近的日期
+    LaunchedEffect(data) {
+        snapshotFlow { scroll.maxValue }.filter { it > 0 }.first()
+        scroll.scrollTo(scroll.maxValue)
+    }
     val n = data.labels.size
     val slotW = 30.dp
     val chartWidth = maxOf(320.dp, slotW * n.coerceAtLeast(1))
+    val leftPadDp = 38.dp
+    val rightPadDp = 8.dp
 
     Box(modifier.fillMaxWidth().horizontalScroll(scroll)) {
-        Canvas(Modifier.width(chartWidth).height(180.dp)) {
+        Canvas(
+            Modifier
+                .width(chartWidth)
+                .height(180.dp)
+                // 点一下某个柱/点，读出该位置各序列的数值
+                .pointerInput(data, visible, chartType) {
+                    detectTapGestures { off ->
+                        val lp = leftPadDp.toPx()
+                        val rp = rightPadDp.toPx()
+                        val w = size.width - lp - rp
+                        if (n > 0 && w > 0f) {
+                            onSelectIndex(((off.x - lp) / (w / n)).toInt().coerceIn(0, n - 1))
+                        }
+                    }
+                },
+        ) {
             if (n == 0 || visible.isEmpty() || visible.all { it.values.isEmpty() }) return@Canvas
             val maxV = (visible.flatMap { it.values }.maxOrNull() ?: 0.0).let { if (it <= 0.0) 1.0 else it }
-            val leftPad = 38.dp.toPx()
-            val rightPad = 8.dp.toPx()
+            val leftPad = leftPadDp.toPx()
+            val rightPad = rightPadDp.toPx()
             val topPad = 12.dp.toPx()
             val bottomPad = 24.dp.toPx()
             val plotW = size.width - leftPad - rightPad
@@ -170,6 +222,13 @@ private fun PivotChart(data: PivotData, chartType: String, selected: String?, mo
                 drawLine(Color(0xFFEFEFF2), Offset(gx, y), Offset(size.width - rightPad, y), 1f)
                 val t = textMeasurer.measure(AnnotatedString(fmtComma(v)), TextStyle(fontSize = 8.sp, color = Color(0xFF9AA0AA)))
                 drawText(t, topLeft = Offset(gx - t.size.width - 5.dp.toPx(), y - t.size.height / 2))
+            }
+
+            // 横轴只标首尾两个：数据一多，逐点标注会全部挤在一起
+            fun drawAxisLabel(i: Int) {
+                if (i != 0 && i != n - 1) return
+                val lt = textMeasurer.measure(AnnotatedString(data.labels[i]), TextStyle(fontSize = 8.sp, color = Color(0xFF9AA0AA)))
+                drawText(lt, topLeft = Offset(cx(i) - lt.size.width / 2, size.height - lt.size.height - 2.dp.toPx()))
             }
 
             if (chartType == "柱状") {
@@ -191,8 +250,7 @@ private fun PivotChart(data: PivotData, chartType: String, selected: String?, mo
                             drawRoundRect(s.color, Offset(x + bw * 0.1f, baseY - h), Size(bw * 0.8f, h.coerceAtLeast(1.dp.toPx())), CornerRadius(3.dp.toPx()))
                         }
                     }
-                    val lt = textMeasurer.measure(AnnotatedString(data.labels[i]), TextStyle(fontSize = 8.sp, color = Color(0xFF9AA0AA)))
-                    drawText(lt, topLeft = Offset(c - lt.size.width / 2, size.height - lt.size.height - 2.dp.toPx()))
+                    drawAxisLabel(i)
                 }
             } else {
                 val totalSlots = (n - 1).coerceAtLeast(1)
@@ -214,10 +272,51 @@ private fun PivotChart(data: PivotData, chartType: String, selected: String?, mo
                         prev = cur
                     }
                 }
-                data.labels.forEachIndexed { i, _ ->
-                    val c = cx(i)
-                    val lt = textMeasurer.measure(AnnotatedString(data.labels[i]), TextStyle(fontSize = 8.sp, color = Color(0xFF9AA0AA)))
-                    drawText(lt, topLeft = Offset(c - lt.size.width / 2, size.height - lt.size.height - 2.dp.toPx()))
+                data.labels.forEachIndexed { i, _ -> drawAxisLabel(i) }
+            }
+
+            // 选中点：竖向参考线 + 各序列在该点的圆点，画在最上层以免被柱体遮住
+            if (selectedIndex != null && selectedIndex in 0 until n) {
+                val c = cx(selectedIndex)
+                drawLine(HColors.Primary.copy(alpha = 0.30f), Offset(c, topPad), Offset(c, baseY), 1.5.dp.toPx())
+                visible.forEach { s ->
+                    val p = Offset(c, yOf(selectedIndex, s.values.getOrNull(selectedIndex) ?: 0.0))
+                    drawCircle(s.color, 4.5.dp.toPx(), p)
+                    drawCircle(Color.White, 1.8.dp.toPx(), p)
+                }
+            }
+        }
+    }
+}
+
+/** 点选后的读数：该点的标签 + 各序列数值（与图表共用同一份可见序列） */
+@Composable
+private fun PivotReadout(data: PivotData, visible: List<PivotSeries>, index: Int) {
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            data.labels.getOrNull(index) ?: "",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = HColors.TextPrimary,
+        )
+        Spacer(Modifier.height(4.dp))
+        FlowRow(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            visible.forEach { s ->
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    LegendDot(s.color)
+                    if (s.name.isNotEmpty()) {
+                        Text(s.name, fontSize = 11.sp, color = HColors.TextSecondary)
+                    }
+                    Text(
+                        fmtComma(s.values.getOrNull(index) ?: 0.0),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = HColors.TextPrimary,
+                    )
                 }
             }
         }
@@ -301,7 +400,12 @@ private fun buildPivot(days: List<TrainingDay>, dim: String, metric: String, agg
         return when (metric) {
             "总组数" -> totalSets.toDouble()
             "总次数" -> records.sumOf { ex -> ex.sets.sumOf { it.reps } }.toDouble()
-            "平均重量" -> if (totalSets > 0) records.sumOf { ex -> ex.weight * ex.sets.size } / totalSets else 0.0
+            // 平均重量只统计有配重的组（自重 weight=0 不计入重量类汇总）
+            "平均重量" -> {
+                val weighted = records.filter { it.weight > 0.0 }
+                val ws = weighted.sumOf { it.sets.size }
+                if (ws > 0) weighted.sumOf { ex -> ex.weight * ex.sets.size } / ws else 0.0
+            }
             "平均次数" -> {
                 val r = records.sumOf { ex -> ex.sets.sumOf { it.reps } }
                 if (totalSets > 0) r.toDouble() / totalSets else 0.0

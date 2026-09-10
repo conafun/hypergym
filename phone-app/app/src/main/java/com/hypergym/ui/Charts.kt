@@ -17,6 +17,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -32,6 +34,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 
 /** 千分位格式化，如 1680 -> "1,680" */
 fun fmtComma(v: Double): String {
@@ -104,6 +108,12 @@ fun GroupedBarChart(
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
+    // 数据变化后默认滚到最右端：优先展示「最近几天」，而不是最早的几天。
+    // 先等布局算出 maxValue（首帧为 0），再滚到底；用户之后手动滚动不会被重置。
+    LaunchedEffect(days) {
+        snapshotFlow { scrollState.maxValue }.filter { it > 0 }.first()
+        scrollState.scrollTo(scrollState.maxValue)
+    }
     val barW = 9.dp
     val barGap = 2.dp
     val groupGap = 20.dp

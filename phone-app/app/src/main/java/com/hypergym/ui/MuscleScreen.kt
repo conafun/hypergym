@@ -47,11 +47,18 @@ fun MuscleScreen(days: List<TrainingDay>, modifier: Modifier = Modifier) {
 
     val sorted = remember(days) { days.sortedBy { it.date } }
     val today = remember { DateUtils.today() }
-    var range by remember { mutableStateOf("WEEK") } // WEEK / MONTH
+    var range by remember { mutableStateOf("WEEK") } // WEEK / MONTH / ALL
     var selectedDay by remember(range) { mutableStateOf<String?>(null) }
 
-    val start = remember(range, today) { DateUtils.offset(today, if (range == "WEEK") -6 else -29) }
-    val filtered = remember(sorted, start) { sorted.filter { it.date >= start } }
+    // ALL 不设起始日：全部历史数据一起参与下方的数据透视与肌群占比
+    val start = remember(range, today) {
+        when (range) {
+            "WEEK" -> DateUtils.offset(today, -6)
+            "MONTH" -> DateUtils.offset(today, -29)
+            else -> null
+        }
+    }
+    val filtered = remember(sorted, start) { if (start == null) sorted else sorted.filter { it.date >= start } }
 
     val distinctEx = remember(filtered) {
         val list = mutableListOf<String>()
@@ -78,7 +85,7 @@ fun MuscleScreen(days: List<TrainingDay>, modifier: Modifier = Modifier) {
     ) {
         item { PageHeader("肌群分布", "各部位训练容量占比") }
         item {
-            RangePills(listOf("WEEK" to "周", "MONTH" to "月"), range) { range = it }
+            RangePills(listOf("WEEK" to "周", "MONTH" to "月", "ALL" to "全部"), range) { range = it }
         }
         item {
             BlockCard {
@@ -127,13 +134,23 @@ fun MuscleScreen(days: List<TrainingDay>, modifier: Modifier = Modifier) {
 
 @Composable
 private fun MusclePieCard(dist: List<Triple<String, Double, Long>>, range: String) {
+    val title = when (range) {
+        "WEEK" -> "本周肌群占比"
+        "MONTH" -> "本月肌群占比"
+        else -> "全部肌群占比"
+    }
+    val totalLabel = when (range) {
+        "WEEK" -> "本周总容量"
+        "MONTH" -> "本月总容量"
+        else -> "总容量"
+    }
     BlockCard {
-        CardTitle(if (range == "WEEK") "本周肌群占比" else "本月肌群占比")
+        CardTitle(title)
         Spacer(Modifier.height(12.dp))
         val total = dist.sumOf { it.second }.coerceAtLeast(1.0)
         val segs = dist.map { DonutSeg(muscleColor(it.first), (it.second / total).toFloat()) }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            DonutChart(segs, fmtComma(total), if (range == "WEEK") "本周总容量" else "本月总容量")
+            DonutChart(segs, fmtComma(total), totalLabel)
             Spacer(Modifier.width(18.dp))
             Column(Modifier.weight(1f)) {
                 dist.forEach { (name, vol, _) ->

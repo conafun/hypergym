@@ -22,6 +22,12 @@ captures/
 .kotlin/
 *.hprof
 
+# ===== 构建产物（二进制，不入库；由 build-debug.ps1 产出）=====
+# 需要分发时放 GitHub Releases，不要提交进 Git
+*.rpk
+dist/
+.temp_*/
+
 # ===== 系统 / 临时 / 压缩包 =====
 .DS_Store
 Thumbs.db

@@ -12,29 +12,32 @@ var GROUP_COLORS = {
 }
 
 var DEFAULT_EXERCISES = [
-  { name: "哑铃", group: "肩", minWt: 20, maxWt: 60, step: 2 },
+  { name: "哑铃", group: "肩", minWt: 10, maxWt: 60, step: 2 },
   { name: "侧平举", group: "肩", minWt: 10, maxWt: 60, step: 2 },
-  { name: "卷腹", group: "核心", minWt: 10, maxWt: 50, step: 5 },
+  { name: "卷腹", group: "核心", minWt: 10, maxWt: 50, step: 5, bw: true },
   { name: "卧推", group: "胸", minWt: 40, maxWt: 90, step: 5 },
   { name: "水平胸推", group: "胸", minWt: 20, maxWt: 90, step: 5 },
   { name: "坐姿肩推", group: "肩", minWt: 20, maxWt: 50, step: 5 },
   { name: "坐姿飞鸟", group: "胸", minWt: 10, maxWt: 50, step: 2 },
-  { name: "下斜胸推", group: "胸", minWt: 30, maxWt: 90, step: 5 },
-  { name: "哈克深蹲", group: "腿", minWt: 30, maxWt: 90, step: 5 },
+  { name: "下斜胸推", group: "胸", minWt: 20, maxWt: 90, step: 5 },
+  { name: "哈克深蹲", group: "腿", minWt: 20, maxWt: 90, step: 5 },
   { name: "高位下拉", group: "背", minWt: 20, maxWt: 60, step: 2 },
-  { name: "大剪刀", group: "背", minWt: 30, maxWt: 90, step: 5 },
+  { name: "大剪刀", group: "背", minWt: 20, maxWt: 90, step: 5 },
   { name: "高位划船", group: "背", minWt: 20, maxWt: 90, step: 5 },
   { name: "坐姿划船", group: "背", minWt: 20, maxWt: 60, step: 2 },
   { name: "俯身划船", group: "背", minWt: 20, maxWt: 60, step: 5 },
-  { name: "杠铃深蹲", group: "腿", minWt: 50, maxWt: 80, step: 5 },
+  { name: "杠铃深蹲", group: "腿", minWt: 40, maxWt: 80, step: 5 },
   { name: "倒蹬", group: "腿", minWt: 30, maxWt: 60, step: 5 },
-  { name: "髋外展", group: "腿", minWt: 30, maxWt: 60, step: 2 },
-  { name: "髋内收", group: "腿", minWt: 30, maxWt: 60, step: 2 },
-  { name: "髋伸展", group: "腿", minWt: 30, maxWt: 60, step: 2 },
-  { name: "罗马椅", group: "核心", minWt: 10, maxWt: 30, step: 5 },
+  { name: "髋外展", group: "腿", minWt: 20, maxWt: 60, step: 2 },
+  { name: "髋内收", group: "腿", minWt: 20, maxWt: 60, step: 2 },
+  { name: "髋伸展", group: "腿", minWt: 20, maxWt: 60, step: 2 },
+  { name: "罗马椅", group: "核心", minWt: 10, maxWt: 30, step: 5, bw: true },
   { name: "腿弯曲", group: "腿", minWt: 10, maxWt: 60, step: 5 },
-  { name: "轨道划船", group: "背", minWt: 30, maxWt: 60, step: 2 },
-  { name: "牧师椅", group: "臂", minWt: 30, maxWt: 60, step: 2 }
+  { name: "轨道划船", group: "背", minWt: 20, maxWt: 60, step: 2 },
+  { name: "面拉", group: "肩", minWt: 20, maxWt: 60, step: 2, bw: true },
+  { name: "引体向上", group: "背", minWt: 10, maxWt: 30, step: 5, bw: true },
+  { name: "双杠臂屈伸", group: "胸", minWt: 10, maxWt: 60, step: 5, bw: true },
+  { name: "牧师椅", group: "臂", minWt: 10, maxWt: 60, step: 2 }
 ]
 
 var exercises = DEFAULT_EXERCISES
@@ -52,8 +55,26 @@ function getWeights(exerciseName) {
   }
   if (!ex) return []
   var weights = []
+  // 自重动作：最左端放一个哨兵 0 表示「自重」，其后才是正常重量
+  if (ex.bw) weights.push(0)
   for (var w = ex.minWt; w <= ex.maxWt; w += ex.step) { weights.push(w) }
   return weights
+}
+
+// 是否支持「自重」选项的动作
+function isBodyweight(exerciseName) {
+  for (var i = 0; i < exercises.length; i++) {
+    if (exercises[i].name === exerciseName) return !!exercises[i].bw
+  }
+  return false
+}
+
+// 该动作的最小配重（自重动作从「自重」加一下就是它）
+function getMinWeight(exerciseName) {
+  for (var i = 0; i < exercises.length; i++) {
+    if (exercises[i].name === exerciseName) return exercises[i].minWt || 0
+  }
+  return 0
 }
 
 function getExerciseNames() {
@@ -107,5 +128,7 @@ export default {
   getStep: getStep,
   getGroups: getGroups,
   getExercisesByGroup: getExercisesByGroup,
-  getGroupColor: getGroupColor
+  getGroupColor: getGroupColor,
+  isBodyweight: isBodyweight,
+  getMinWeight: getMinWeight
 }
