@@ -50,15 +50,24 @@ fun MuscleScreen(days: List<TrainingDay>, modifier: Modifier = Modifier) {
     var range by remember { mutableStateOf("WEEK") } // WEEK / MONTH / ALL
     var selectedDay by remember(range) { mutableStateOf<String?>(null) }
 
-    // ALL 不设起始日：全部历史数据一起参与下方的数据透视与肌群占比
-    val start = remember(range, today) {
+    // 区间按「自然周期」取，不是「最近 N 天」：
+    //   WEEK  = 本周（周一 ~ 周日）
+    //   MONTH = 本月（自然月，1 号 ~ 月末）
+    //   ALL   = 全部历史数据
+    val filtered = remember(sorted, range, today) {
         when (range) {
-            "WEEK" -> DateUtils.offset(today, -6)
-            "MONTH" -> DateUtils.offset(today, -29)
-            else -> null
+            "WEEK" -> {
+                val monday = DateUtils.offset(today, -DateUtils.weekdayIndex(today))
+                val sunday = DateUtils.offset(monday, 6)
+                sorted.filter { it.date >= monday && it.date <= sunday }
+            }
+            "MONTH" -> {
+                val monthKey = DateUtils.monthKey(today)
+                sorted.filter { it.date.startsWith(monthKey) }
+            }
+            else -> sorted
         }
     }
-    val filtered = remember(sorted, start) { if (start == null) sorted else sorted.filter { it.date >= start } }
 
     val distinctEx = remember(filtered) {
         val list = mutableListOf<String>()

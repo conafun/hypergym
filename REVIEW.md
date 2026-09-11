@@ -1,8 +1,39 @@
 # HyperGym 项目审查报告
 
-> 审查范围：`F:\DeepseekHarness\miband` 全仓库
-> 审查方式：源码逐文件通读（手机端 ~2100 行 Kotlin + 手环端 795 行 ux/JS）+ 构建配置、Git 历史、资产实测
-> 结论一律给出 `文件:行号` 证据；文档与实现不一致处已逐条核对
+> **审查范围**：`F:\DeepseekHarness\miband` 全仓库
+> **审查方式**：源码逐文件通读（手机端 ~2100 行 Kotlin + 手环端 795 行 ux/JS）+ 构建配置、Git 历史、资产与安装包实测
+> **最后更新**：2026-09-10 —— 本版按「**严重级别 × 端（手机 / 手环）**」重组，并为每条问题补充了「怎么触发 → 你会看到什么 → 真正的后果」
+> **版本基线**：手机端 3.1.5（versionCode 12） ｜ 手环端 1.0.66（versionCode 66）
+
+**状态标记**
+
+| 标记 | 含义 |
+|:--:|---|
+| ✅ | 已修复 |
+| ❌ | **未修复** |
+| ⏸ | 已冻结（明确决定不动，例如签名相关） |
+
+**证据一律给出 `文件:行号`，行号以 2026-09-10 的代码为准。**
+
+---
+
+## 〇、状态总览
+
+共 **34** 项问题：已修 **4** 项，冻结 **2** 项，**未修 28** 项。
+
+| 级别 | 端 | 项数 | 已修 | 未修 | 冻结 |
+|---|---|:--:|:--:|:--:|:--:|
+| P0 严重 | 手机端 | 1 | 0 | **1** | 0 |
+| P0 严重 | 手环端 | 3 | 0 | **3** | 0 |
+| P0 严重 | 跨端 / 仓库 | 4 | 2 | 0 | 2 |
+| P1 中等 | 手机端 | 10 | 0 | **10** | 0 |
+| P1 中等 | 手环端 | 10 | 0 | **10** | 0 |
+| P2 技术债 | 手机端 | 1 | 0 | **1** | 0 |
+| P2 技术债 | 手环端 | 1 | 0 | **1** | 0 |
+| P2 技术债 | 跨端 / 仓库 | 4 | 2 | **2** | 0 |
+| **合计** | | **34** | **4** | **28** | **2** |
+
+> **当前最该关注的**：P0 里手机端 1 项 + 手环端 3 项全部未修，其中两条是**会真正丢失训练数据**的路径（`P0-M1`、`P0-B1`），一条是**会写入错误数据且事后无法分辨**的（`P0-B3`）。
 
 ---
 
@@ -13,13 +44,25 @@
 | 维度 | 实测数据 |
 |---|---|
 | 手机端 | Kotlin 2.1.21 + Compose (BOM 2025.05.01)，AGP 8.2.2，minSdk 21 / targetSdk 30 / compileSdk 36 |
-| 手环端 | Vela OS 快应用，`com.hypergym` v1.0.64，`src/pages/home/index.ux` 单文件 36 KB / 795 行 |
+| 手环端 | Vela OS 快应用，`com.hypergym` v1.0.66，`src/pages/home/index.ux` 单文件 36 KB / 804 行 |
 | 资产 | `exercises.json` 941,877 字节，**1324 个动作**，image/video 字段 100% 齐全，图片 1324 + 视频 1324 = 2649 个文件 |
 | 动作分类实测 | 上臂 292、大腿 227、背 203、核心 169、胸 163、肩 143、小腿 59、前臂 37、有氧 29、颈 2 |
-| Git | 15 个提交（2026-08-19 初次提交 → 2026-09-05），工作区有 8 个文件未提交；`.git` 经本次清理后 **28.5 MB**（原 785.6 MB） |
-| 仓库治理 | **无测试**（`app/src` 下只有 `main`）、**无 CI**、无 lint 配置 |
+| 手环内置动作 | **26 个**（`data.js`），按 6 个部位分组 |
+| Git | 17 个提交；`.git` 经清理后 **28.5 MB**（原 785.6 MB） |
+| 仓库治理 | **无测试**（`app/src` 下只有 `main`）、**无 CI** |
+| 开源协议 | MIT（`LICENSE`，2026-09-10 加入） |
 
-**架构设计是这份代码最大的加分项**：数据层拆分干净，职责边界清晰。
+### 值得肯定的设计决策
+
+架构分层是这份代码最大的加分项，以下这些不是"能跑就行"的写法：
+
+- **`RecordStore` 用单线程 executor 串行化所有磁盘操作**（`RecordStore.kt:60-62`）——彻底绕开并发写文件的复杂度，正确且克制。
+- **存储后端抽象 + 双实现**（`DataBackend.kt:52-70`）：SAF 为主、内部存储兜底，"卸载重装数据不丢"真的成立。
+- **分片 + append-only + fsync**：`appendLine` 写完即 `fd.sync()`（`DataBackend.kt:121,196`），断电不丢已落盘数据。
+- **`listDataFiles` 按 `(number, name)` 排序**（`DataBackend.kt:90,153`），旧版 `records.jsonl`（number=0）排在分片之前，配合"后行覆盖前行"的索引策略保证新数据胜出——顺序语义是对的。
+- **`UiState` 单向绑定**：composable 只依赖状态对象，不依赖 Activity（`HyperGymApp.kt:30`）。
+- **UI 层无 TODO、无注释掉的死代码**，中文注释写的是"为什么"而不是"做了什么"（`MuscleMap.kt:3-17`、`PivotCard.kt:304`）。
+- **手环端诊断页（B 码日志）** 对真机联调非常实用，是踩过坑才有的设计。
 
 ```
 手环 index.ux ──@system.interconnect──▶ MainActivity（全部联通逻辑）
@@ -34,221 +77,267 @@
    records-NNNN.jsonl · 30 行/片 · date 主键去重 · 超 1200 行压缩
 ```
 
-值得肯定的设计决策：
+---
 
-- **`RecordStore` 用单线程 executor 串行化所有磁盘操作**（`RecordStore.kt:60-62`）——彻底绕开了并发写文件的复杂度，是正确且克制的选择。
-- **存储后端抽象 + 双实现**（`DataBackend.kt:52-70`）：SAF 为主、内部存储兜底，"卸载重装数据不丢"是真的能成立。
-- **分片 + append-only + fsync**：`appendLine` 写完即 `fd.sync()`（`DataBackend.kt:121,196`），断电不丢已落盘数据。
-- **`listDataFiles` 按 `(number, name)` 排序**（`DataBackend.kt:90,153`），旧版 `records.jsonl`（number=0）排在分片之前，配合"后行覆盖前行"的索引策略，保证新数据胜出——顺序语义是对的。
-- **`UiState` 单向绑定**：composable 只依赖状态对象，不依赖 Activity（`HyperGymApp.kt:30`）。
-- **UI 层无 TODO、无注释掉的死代码**，中文注释写的是"为什么"而不是"做了什么"（`MuscleMap.kt:3-17`、`PivotCard.kt:304`）。
-- 手环端诊断页（B 码日志）对真机联调非常实用，是踩过坑才有的设计。
+## 二、P0 · 严重问题
+
+### 2.1 手机端
+
+#### ❌ P0-M1 SAF 写盘失败被当作成功上报
+
+- **症状**：手机端显示"已落盘"，但数据实际没写进文件。
+- **触发**：SAF 授权失效的常见情形——换手机、在系统设置里撤销了 HyperGym 的文件夹权限、选定文件夹被删/改名、SD 卡拔出、存储空间满。
+  此时 `openFileDescriptor(uri, "wa")` 返回 `null`，`DataBackend.kt:193` 的 `?: return` **直接返回，不抛异常也不返回失败**；`createShard` 同理（`DataBackend.kt:182`）。
+- **你会看到什么**：传输页日志打出一行**绿色成功**——
+  `S05 已落盘 date=2026-09-10 | 新增日期`（`RecordStore.kt:348` 无条件上报 `ok=true`）
+  手机上数据页也确实能看到这天（因为内存索引里有）。
+- **真正的后果**：**重启 App、或回前台触发一次重扫目录，这天的记录凭空消失。**
+  如果你在这种状态下连续导入多天，某次重启会发现好几天的记录同时不见；而手环那边发送后并不保留可重发的副本，等于**永久丢失**。
+  这是"看起来成功的数据丢失"，比直接报错危险得多——报错你会立刻处理，假成功你会以为已经安全了。
+- **证据**：`DataBackend.kt:191,193`（两处 `?: return`）→ `RecordStore.kt:328`（可能什么都没写）→ `RecordStore.kt:332-348`（照常 `totalLines++` 并上报成功）
+- **修复**：`DataBackend.appendLine` 改为返回 `Boolean` 或抛异常；`RecordStore.ingest` 据此上报失败，并回滚 `RecordStore.kt:307-310` 处已写入的内存索引。
 
 ---
 
-## 二、必须优先处理
+### 2.2 手环端
 
-### 🔴 1. 签名密钥已提交到公开仓库（最高危）
+#### ❌ P0-B1 读取失败即当空库（**最危险的一条**）
 
-仓库 `https://github.com/conafun/hypergym` **未登录即可访问（HTTP 200，公开）**，而 README 第 379 行还写着"暂不开源"。已确认在版本控制内的敏感文件：
+- **症状**：历史记录在某次"什么都没做"的情况下全部消失。
+- **触发**：任何一次写盘被打断——手环存储满 / 电量低 / 进程被系统杀掉 → `internal://files/training_data.json` 只写了一半（截断的 JSON）。
+- **这条有一个很阴险的两步时序**：
 
-| 文件 | 内容 | 状态 |
-|---|---|---|
-| `phone-app/keystore.properties` | **明文签名口令** `xmswearable`（debug + release 同一套） | 已跟踪 |
-| `phone-app/keystore/keystore.p12` | 签名密钥库 | 已跟踪 |
-| `phone-app/keystore/keystore.pem` | 签名证书 | 已跟踪 |
-| `miband10pro-trainer/sign/release/private.pem` | **rpk 签名私钥** | 已跟踪 |
-| `diag-band/sign/release/private.pem` | rpk 签名私钥 | 已跟踪 |
-| `interconnect-demo-build/sign/{debug,release}/private.pem` | rpk 签名私钥 | 已跟踪 |
+  | 步骤 | 发生什么 | 数据状态 |
+  |:--:|---|---|
+  | ① | 写盘被打断，文件被截断 | 文件损坏，**内容其实还在磁盘上** |
+  | ② | 下次打开手环：`file-io.js:11` 的 `catch (e) {}` 把"解析失败"当成"没有记录"，`index.ux:399` 赋成空对象 → 界面显示历史页空、今日数据空 | **数据仍在，此刻还能救** |
+  | ③ | 你照常点「结束」保存：`file-io.js:19-20` 是**全量覆盖写**，把内存里那份**空的** `records` 写回磁盘 | **坏文件被"内容为空的完好文件"覆盖 → 永久丢失** |
 
-后果：任何人可下载密钥、用你的身份签发 APK/rpk 分发（供应链投毒），能覆盖安装你的应用。口令 `xmswearable` 同时是 debug/release 共用（`keystore.properties:3-5,9-11`），且与密钥别名相同，字典强度极低。
+- **真正的后果**：现象会表现为"前几天还好好的，今天一同步发现历史全没了，而我什么都没做"——你会去怀疑手环、怀疑手机、怀疑通信协议，但根源是一次早已发生过的写盘中断，而**是你下一次正常操作亲手把它彻底清掉的**。
+  另外 `fail` 回调同样返回 `{}`（`file-io.js:14`），所以"文件读不到"和"文件是空的"这两种完全不同的情况在代码里无法区分。
+- **证据**：`file-io.js:10-14`、`file-io.js:19-25`、`index.ux:399`
+- **修复**：`readRecords` 必须区分「文件不存在」与「解析失败」，后者**禁止保存**并明确提示用户；`saveRecords` 改「写临时文件 → 校验 → rename」，并保留上一份备份。
 
-**修复（顺序不能颠倒）：**
+#### ❌ P0-B2 保存无原子写、无重入锁，失败后内存已污染
 
-1. **立即轮换**：生成全新的 release keystore（`keytool`），旧密钥视为已泄露并作废。
-2. **从 Git 历史彻底清除**：`git filter-repo --path phone-app/keystore.properties --path phone-app/keystore --path-glob '*/private.pem' --invert-paths`，然后 force-push。注意：只要历史里存在过，单纯 `git rm` 无效——**必须重写历史 + 轮换密钥**。
-3. **补 `.gitignore`**（当前 `*.jks` 挡住了 `keystore.jks`，却放过了 `.p12`/`.pem`/`keystore.properties`）：
-   ```gitignore
-   keystore.properties
-   keystore/
-   sign/
-   *.p12
-   *.pem
-   ```
-4. 改为从环境变量 / `~/.gradle/gradle.properties` 读口令，仓库内只留 `keystore.properties.example`。
+- **症状**：保存失败后重试，会把同一批组记两遍。
+- **触发**：点「结束」时写盘失败（存储满等）。代码只弹一个 toast（`index.ux` 保存回调的 fail 分支），**不清空 `planItems`**。
+- **你会看到什么**：提示保存失败。你的自然反应是——**再点一次「结束」**。
+- **真正的后果**：`index.ux:637` 的 `concat` 被执行第二次 → **同一批组被记两遍**。你做了 5 组，记录里变成 10 组、容量算成两倍。
+  而且因为是"先改内存再写盘"，即使你不再点，内存里也有这批数据但磁盘上没有，下次启动同样消失。
+  **额外**：`endTraining`（`index.ux:601`）**没有重入锁**，所以快速连点两次「结束」也会走两遍——不需要写盘失败就能触发。
+- **证据**：`index.ux:601-646`（`endTraining`）、`index.ux:637`（重复 `concat`）、`index.ux:614`（日期在保存时才生成）
+- **修复**：`endTraining` 加 `if (this.saving) return` 重入锁；先深拷贝 `int_records` 快照，写盘成功后再提交/清空 `planItems`，失败则回滚；`saveRecords` 改原子写。
 
-### 🔴 2. `keystore.jks` 被忽略但构建依赖它 → 新克隆无法构建
+#### ❌ P0-B3 重量档位回绕无钳位（**静默写入错误数据**）
 
-`app/build.gradle:56` 引用 `release.store.file=../keystore/keystore.jks`，但：
-
-```
-phone-app/keystore/keystore.jks   tracked=False  exists=True   ← .gitignore:13 `*.jks` 命中
-phone-app/keystore/keystore.p12   tracked=True   exists=True
-```
-
-**别人 clone 下来跑 `assembleRelease` 会直接失败**。这是个尴尬的组合：该忽略的（口令、密钥）提交了，不该忽略的（构建必需的 jks）忽略了。修复方式见上一条（把整套 keystore 移出仓库 + 提供示例文件 + 文档说明生成步骤）。
-
-### ✅ 3. `.git` 曾有 757 MB 垃圾（已清理）
-
-实测包内对象分类：
-
-| 类别 | 数量 | 体积 |
-|---|---|---|
-| 可达 blob | 2751 | **25.5 MB** |
-| 不可达 blob（垃圾） | 2086 | 756.8 MB |
-| `.git` 总计（清理前） | — | 785.6 MB |
-
-有 2086 个 blob 不再被任何 ref 引用（本地多次改写提交遗留），最大单个对象 **199 MB**，且单独占了一整个 `pack-0a7c6b15….pack`。
-
-**已于本次审查中清理：**
-
-```
-git gc --prune=now      # 785.6 MB → 28.5 MB，回收 757.2 MB
-```
-
-清理前先做过安全检查：`git fsck` 显示 **0 个 unreachable/dangling commit**（全部是 blob 与 1 个 tree），无损坏、无 stash、无额外分支或标签，因此不存在历史丢失风险。清理后 `git fsck` 无错误，HEAD 仍为 `04defcf`，15 个提交、5439 个追踪文件、工作区状态均与清理前完全一致。
-
-**一处更正：** 我此前写"这些大对象会随 clone/push 一起传输"是**错的**。Git 只传输可达对象，所以远端从未被污染——GitHub API 实测该仓库 `size` = 28478 KB ≈ **27.8 MB**，与本地清理后的可达数据（27.81 MiB）几乎一致。即这 757 MB 纯粹是**本地磁盘**问题，远端无需 force-push 来缩容。
-
-**因此：** 重写历史现在**只剩"清除密钥"这一个理由**了，不再需要为体积而做。
-
-### 🔴 4. 手环端存在真实的训练数据丢失路径
-
-这是"会真正弄丢用户数据"的一类缺陷，四处相互叠加：
-
-1. **读取失败即当空库，下次保存抹掉全部历史**
-   `file-io.js:10-12` 的 `catch (e) {}` 把 JSON 解析失败静默降级为 `{}`，`fail` 回调同样返回 `{}`（`file-io.js:14`）；`index.ux:397-401` 直接 `self.int_records = records || {}`；而保存是全量覆盖写（`file-io.js:18-25`）。→ 一次解析失败，历史记录被清空。
-2. **写盘失败后内存已污染，且会重复追加**
-   `index.ux:606-633` 先改内存再写盘；失败仅 toast（`634-644`），`planItems` 未清空 → 用户再点"结束"会把同一批 set 二次 `concat`（`index.ux:628`）产生重复组。`endTraining`（`592-600`）无重入锁，快速连点两次都会执行。
-3. **无原子写**：无"临时文件 → 校验 → rename"，无备份，`version` 字段只写不校验（`file-io.js:19` vs `10`）。
-4. **重量档位回绕无钳位**：`index.ux:505-519` 用取模，卧推 90 kg 再按下一档直接跳回 40 kg，静默写入 50 kg 偏差。
-
-**修复：** `readRecords` 区分"文件不存在"与"解析失败"（后者禁止保存并提示）；`saveRecords` 改临时文件 + rename + 保留上一份备份；`endTraining` 加重入锁与失败回滚；重量加减改钳位不回绕。
-
-### 🔴 5. SAF 写入失败被当作成功上报
-
-手机端 `SafBackend.appendLine`（`DataBackend.kt:190-198`）在 `findFile` 或 `openFileDescriptor` 返回 null 时**直接 `return`，不抛异常也不返回失败**。而 `RecordStore.ingest` 调用后无条件认为成功：
-
-```kotlin
-b.appendLine(target, day.rawJson)      // RecordStore.kt:328  ← 可能什么都没写
-shardCounts[target] = (shardCounts[target] ?: 0) + 1
-totalLines++
-...
-onResult(IngestResult(true, day.date, reason, ...))  // 上报 ok=true
-```
-
-后果：授权失效、provider 报错、磁盘满时，界面显示"已落盘 S05"，内存索引里也有这条数据，**但文件里没有**——直到下次 `reload` 数据凭空消失。这是"看起来成功的数据丢失"，比直接报错更危险。
-
-**修复：** `DataBackend.appendLine` 改为返回 `Boolean` 或抛异常，`ingest` 据此上报失败并回滚内存索引（`RecordStore.kt:307-310` 的写入）。
+- **症状**：不报错、不丢数据，只是安静地把错误重量写进记录。
+- **触发**：`index.ux:514-528` 的 `prevWt`/`nextWt` 用取模计算档位。
+- **具体例子**：
+  - 卧推范围 40–90（步进 5）。你在 **40** 上再按一次 `‹` → 回绕到 **90**。
+  - 自重类动作更坑：引体向上最左端是「自重」，再按一次 `‹` → 跳到 **30kg（最大值）**。
+- **真正的后果**：你以为还在减重量，实际变成了最大值；这时点「增加」就记了一条**错重量的记录**，并参与当天的容量统计、周/月环比、PR 判定。
+  **事后你完全无法分辨哪些记录是错的**——丢失你至少知道丢了，错误数据会一直污染统计。
+- **证据**：`index.ux:514-528`（取模回绕）
+- **修复**：改成钳位（到端点就停住，不回绕）。
 
 ---
 
-## 三、值得修复的正确性问题
+### 2.3 跨端 / 仓库
 
-### 手机端
+#### ⏸ P0-X1 签名密钥已提交到公开仓库
 
-| 问题 | 证据 | 说明 |
-|---|---|---|
-| **`SimpleDateFormat` 非线程安全** | `StatsEngine.kt:13` | 单例共享 `fmt`，`todayString()`/`formatDate()` 可能在 UI 线程与后台线程并发调用 → 结果错乱或抛异常。改用 `java.time` 或每次新建/`ThreadLocal` |
-| **"清除"按钮点了没反应** ✅已实测确认 | `DebugScreen.kt:74` → `MainActivity.kt:118` | 按钮清的是 `ui.receivedLines`，但页面只渲染 `state.logLines`（`DebugScreen.kt:56`），`receivedLines` 全局无人消费 → 日志一条不少 |
-| **体积为 0 时除零产生 NaN** ✅已实测确认代码路径 | `DashboardScreen.kt:93,352`；`Charts.kt:53,64,67,113,136` | `maxOfOrNull{} ?: 1.0` 只兜空列表；当**所有天**的 `totalVolume()` 均为 0 时 `maxVol=0` → `NaN`，`NaN.dp` 会传给 Compose 尺寸。注意触发条件比"常见"窄（需全部记录容量为 0，如 sets 为空或 weight=0），故定为中等而非严重。修：`safeMax(v)=if(v<=0)1.0 else v` |
-| **Pager 页面状态全部丢失** | `HyperGymApp.kt:74`；各页 `remember` | `HorizontalPager` 默认销毁离屏页，而全模块 `rememberSaveable` 出现 0 次 → 滑走再回来，筛选/展开/搜索/编辑态全部重置 |
-| **选中日期被覆盖** | `DashboardScreen.kt:95` | `remember(sorted){ sorted.lastOrNull()?.date }` 把 remember key 当初始化用 → 手环每回传一次数据，用户选中的日期就被重置为最新 |
-| **畸形 date 可致崩溃** | `TrainingData.kt:50` 只判空；`DateUtils.kt:25,28`、`DashboardScreen.kt:79,101` 定长切串 | 一条非法日期字符串即 `StringIndexOutOfBounds`/`NumberFormatException`。建议 `parse` 时用正则校验 `\d{4}-\d{2}-\d{2}` |
-| **ExoPlayer 未随生命周期暂停** | `ExerciseScreen.kt:280-294` | 只有 `onDispose`，退后台视频继续播放；未设 `audioAttributes`（无音频焦点）；`AndroidView` 缺 `update` 块 |
-| **主线程解析 941 KB JSON** | `ExerciseScreen.kt:70`、`MuscleScreen.kt:45` | 在 composition 内同步 `readText` + 解析 1324 条 → 首帧阻塞 |
-| **Pivot 计算 O(n²)** | `PivotCard.kt:318-326` | `valueOf` 内 `recs.filter{}` 在 `sortedByDescending` 比较器里被反复调用 |
-| **`MuscleMap.init` 隐式且有顺序依赖** | `MuscleScreen.kt:46` 是唯一调用点 | 未初始化时 `libraryBest` 返回 null（`MuscleMap.kt:112`），静默降级为关键词匹配 → 分类结果依赖"是否进过肌群页"。当前因 `PivotCard` 在 `MuscleScreen` 内部而侥幸正确，属脆弱设计 |
-| **`groupCache` 无同步** | `MuscleMap.kt:43,84-86` | 普通 `HashMap` 可能被多线程写入 → 极端情况下 HashMap 结构损坏 |
-| **Vico 是无用的重依赖** | `build.gradle:103` 声明，`app/src` 全代码 **0 处引用** | 图表全是 Canvas 自绘（`Charts.kt`/`PivotCard.kt`）。但它迫使 `configurations.all { force core-ktx 1.13.1 }`（`build.gradle:112-117`）——白背一个降级 hack。建议直接删除 |
-| **release 无混淆/压缩** | `build.gradle:65` `minifyEnabled false` | 37 MB 的 APK 与此有关（`demo-package/HyperGym-Phone.apk` = 36,733,784 字节，主要是 2649 个媒体资产） |
-| **版本号在配置期被改写** | `build.gradle:22-32` | 只要 Gradle 配置了 release 任务就 `versionPatch+1` 并写回 `version.properties` → IDE sync 也可能触发版本漂移 |
+- **状态**：**已冻结**。用户明确要求不再改动签名相关的一切。此处仅记录事实，**不要动手**。
+- **事实**：仓库 `https://github.com/conafun/hypergym` 为公开仓库，以下文件在版本控制内：
 
-### 手环端
+  | 文件 | 内容 |
+  |---|---|
+  | `phone-app/keystore.properties` | **明文签名口令**（debug + release 共用，且与密钥别名相同） |
+  | `phone-app/keystore/keystore.p12`、`keystore.pem` | 签名密钥库与证书 |
+  | `miband10pro-trainer/sign/release/private.pem` | **rpk 签名私钥**（与手机 APK 同一张证书，通信依赖它） |
+  | `diag-band/sign/release/private.pem` | rpk 签名私钥 |
+  | `interconnect-demo-build/sign/{debug,release}/private.pem` | rpk 签名私钥 |
 
-| 问题 | 证据 |
+- **潜在后果**：任何人可下载密钥、以你的身份签发 APK/rpk 分发（供应链投毒），并可覆盖安装你的应用。
+- **若将来要处理**：必须「**重写 Git 历史 + 轮换密钥**」同时做——只要历史里存在过，单纯 `git rm` 无效。
+
+#### ⏸ P0-X2 `keystore.jks` 被忽略但构建依赖它
+
+- **状态**：与签名区相关，**一并冻结**。
+- **事实**：`app/build.gradle:56` 引用 `release.store.file=../keystore/keystore.jks`，但 `.gitignore:13` 的 `*.jks` 把它挡住了：`keystore.jks` 未跟踪（仅本机存在），而 `keystore.p12` / `keystore.pem` 却被提交了。
+- **后果**：**别人 clone 下来跑 `assembleRelease` 会直接失败**（找不到签名库）。
+  尴尬点在于该忽略的（口令、密钥）提交了，不该忽略的（构建必需的 jks）忽略了。
+
+#### ✅ P0-X3 rpk 用错签名证书导致手环与手机断连（**已修**）
+
+- **症状**：手环与手机**完全无法通信**，且现象上完全看不出是签名问题。
+- **根因**：`build-debug.ps1` 最初用 `npm run build`（development 模式）打包手环端。`aiot` 在 development 模式下按
+  `sign/debug/` → `sign/` → **toolkit 自带调试证书** 的顺序查找签名证书
+  （`node_modules/@aiot-toolkit/aiotpack/lib/compiler/javascript/vela/utils/signature/SignUtil.js:38-68`）。
+  本项目只有 `sign/release/`，于是**三级回退全部落空，静默使用了 toolkit 内置调试证书** → 与手机 APK 签名不一致。
+- **为什么难查**：**不留任何源码痕迹**。`manifest.json` 只动了版本号两行，协议代码一个字没改，源码 diff 完全正常。
+- **实测证据**：
+
+  | 对象 | SHA256 指纹 |
+  |---|---|
+  | 手机 APK（`keystore.jks`，alias `xmswearable`） | `EA:B2:34:44:C0:31:B8:14:…:24:2F` |
+  | 手环 `sign/release/certificate.pem` | `EA:B2:34:44:C0:31:B8:14:…:24:2F` ✅ 一致 |
+  | aiot-toolkit 内置调试证书 | `4E:8E:1E:E2:49:68:B0:DA:…:45:85` ❌ 不同 |
+
+  旁证：坏包的 `pages/home/index.js` 是 205,670 字节（development 不压缩），正确包是 41,556 字节、`META-INF/CERT` 2,622 字节——与原来能通的包（41,471 / 2,623）几乎一致。
+- **修复**：`build-debug.ps1` 改用 `npm run release`；并加装**构建前指纹白名单校验**（`$EXPECTED_CERT_SHA256`）+ **构建后日志扫描**（签名路径落在 `node_modules` 即报错）。
+- **详见**：[`SIGNING.md`](SIGNING.md)
+
+#### ✅ P0-X4 `.git` 曾有 757 MB 垃圾（**已修**）
+
+- **事实**：2086 个不可达 blob 占了整整一个 `pack-0a7c6b15….pack`（756.8 MB），最大单个对象 199 MB。可达数据只有 25.5 MB。
+- **修复**：`git gc --prune=now` → **785.6 MB → 28.5 MB，回收 757.2 MB**。
+  清理前已确认 **0 个 unreachable/dangling commit**（全是 blob 与 1 个 tree），无损坏、无 stash、无额外分支/标签，因此不存在历史丢失风险。
+- **一处更正**：本报告早期版本写"这些大对象会随 clone/push 一起传输"是**错的**。Git 只传输可达对象，远端从未被污染（GitHub API 实测 `size` = 28478 KB ≈ 27.8 MB，与本地清理后可达数据几乎一致）。这 757 MB 纯粹是**本地磁盘**问题。
+
+---
+
+## 三、P1 · 中等问题
+
+### 3.1 手机端（10 项，全部 ❌ 未修）
+
+| # | 问题 | 触发 / 你会看到什么 | 真正的后果 | 证据 |
+|:--:|---|---|---|---|
+| M1 | **「清除」按钮点了没反应** | 日志刷到 200 条上限，想清空看新日志 → 点了没用，一条不少 | 按钮清的是 `ui.receivedLines`，而页面只渲染 `state.logLines`；`receivedLines` 全局无人消费，是死状态。联调时非常碍事 | `MainActivity.kt:118` → `DebugScreen.kt:56` |
+| M2 | **Pager 离屏页状态全部丢失** | 动作库搜了"深蹲"、翻了详情 → 滑到日记页 → 滑回来 → 搜索框空了、滚动位置回顶部 | 全模块 `rememberSaveable` 出现 **0 次**，`HorizontalPager` 默认销毁离屏页。肌群页选了「全部」+ 调好透视维度，滑走再回来全部重置，每次切页都像第一次进 | `HyperGymApp.kt:74`；各页均用 `remember` |
+| M3 | **选中日期被覆盖** | 你点 9/3 看那天明细 → 手环这时发来今天的记录 → 页面跳走 | `remember` 的 key 被当初始化用。联调时手环持续发数据，这会反复发生，基本没法安心看历史 | `DashboardScreen.kt:94` |
+| M4 | **畸形 date 直接闪退** | 手环发来 `"2026/09/10"` 或 `"9-10"` | `parse` 只判空不校验格式（`TrainingData.kt:51`），UI 侧到处 `date.substring(5)`/`substring(0,7)`/`toInt()`。**坏数据已落盘，所以每次打开都在同一处崩**，只能手动去数据目录删掉那条才能救回来 | `TrainingData.kt:51`；`DateUtils.kt:25,28`；`DashboardScreen.kt:78,100` |
+| M5 | **`SimpleDateFormat` 非线程安全** | 概率性问题，无明显规律 | 单例共享（`StatsEngine.kt:13`）。UI 线程画图表的同时后台 executor 在重扫目录并调 `formatDate` → 可能抛异常，**也可能静默返回错误日期**（某天记录被归到别的日期上，且没人会立刻发现） | `StatsEngine.kt:13` |
+| M6 | **体积为 0 时除零产生 NaN** | 需要**所有天**的 `totalVolume()` 都为 0（如 sets 为空或 weight=0） | `maxOfOrNull{} ?: 1.0` 只兜空列表不兜零值 → `maxVol=0` → `volume/maxVol` = NaN → `NaN.dp` 传给 Compose 尺寸。触发条件较窄，故定为中等 | `DashboardScreen.kt:92,351`；`Charts.kt:53,64,67,113,136` |
+| M7 | **ExoPlayer 不随生命周期暂停** | 动作详情页看教学视频 → 按 Home 退到后台 → **视频继续循环播放，声音还在响** | 只有 `onDispose`，没有 Lifecycle 监听；也没设 `audioAttributes`（无音频焦点，会与其他 App 混音）。费电、吵、用户不知道声音从哪来 | `ExerciseScreen.kt:280-294` |
+| M8 | **主线程解析 941 KB JSON** | 首次进动作页或肌群页，明显白屏/卡顿 | 在 composition 里同步 `readText` + 解析 1324 条；`MuscleScreen` 还要跑 `MuscleMap.init`（对 1324 个动作做别名展开 + 建关键词索引）。低端机可能 ANR | `ExerciseScreen.kt:70`；`MuscleScreen.kt:45,46` |
+| M9 | **Vico 是无用的重依赖** | 不直接影响使用 | `app/src` 全代码 **0 处引用**（图表全是 Canvas 自绘）。它逼你 `force 'androidx.core:core-ktx:1.13.1'`（Vico 2.1.4 传递依赖 1.16.0 要求 AGP 8.6+，而项目锁 AGP 8.2.2）。**隐雷**：以后任何依赖想用 core-ktx 1.14+ 的新 API 都会在编译期诡异失败，而报错不会指向 Vico | `build.gradle:103,114,115` |
+| M10 | **版本号会自己走** | 用 Android Studio 打开项目、点一下 Sync → `version.properties` 莫名多出改动 | `isReleaseBuild` 判断在**配置期**执行，只要配置了 release 任务就 `versionPatch+1` 并写回文件。版本号与"是否真的发版"脱钩 | `build.gradle:21-32` |
+
+> 另有两条同属 P1 但影响面较小：**`MuscleMap.init` 隐式且有顺序依赖**（`MuscleScreen.kt:46` 是唯一调用点，未初始化时静默降级为关键词匹配）、**`groupCache` 无同步**（`MuscleMap.kt:43,84-86`，普通 `HashMap` 可能被多线程写入）。以及 **release 无混淆/压缩**（`build.gradle:65,69` `minifyEnabled false`）。
+
+### 3.2 手环端（10 项，全部 ❌ 未修）
+
+| # | 问题 | 触发 / 你会看到什么 | 真正的后果 | 证据 |
+|:--:|---|---|---|---|
+| B1 | **长按重量数字直接退出应用** | 屏幕只有 336px 宽，想点「‹」或想滑动，手指停留稍长 | **整个 app 直接退出，且当前未保存的计划不落盘**——辛苦加的 5 个动作计划一次误触全没。更根本的问题：同一手势在本 app 里干三件不相干的事（记录列表长按=编辑重量、历史页长按=发送数据、计划页长按=退出应用），用户无法形成预期 | `index.ux:15` → `index.ux:736` |
+| B2 | **屏号错位：划到历史页反而触发诊断** | 左右滑到「历史」屏 | 判的是 `e.index === 3`，但 index 3 是历史屏、诊断屏是 index 4 → 每次进历史都发一次 `getReadyState` + **延迟 1.5 秒的 `diagnosis`**；而真正的诊断屏反而不触发任何东西，**联调时会被彻底误导**（你以为在看诊断，实际诊断没跑）。这些多余请求还占用 interconnect 通道，可能在发送训练数据时阻塞 | `index.ux:664` |
+| B3 | **定时器与监听泄漏** | 反复点几次「重连」，用一段时间后开始变卡 | 多处 `setTimeout` 未登记（`index.ux:338,359,388,671,689,733,744`），`onDestroy` 只清 4 个具名定时器；`dbgReconnect` 每次都重新 `interconnect.instance()` 而不销毁旧的 → **累积多个活的连接实例**，各自持有回调闭包与页面引用。手环内存很小，累积后卡顿、掉帧、被系统杀掉。**难查**：不是立刻崩，是"用一段时间后才出问题" | `index.ux:359,388`；`interconnect-client.js:18` |
+| B4 | **跨零点归属错误** | 23:50 开始练、00:10 结束点「结束」 | 日期用**保存时刻**生成（`index.ux:614`）→ 整场训练被记到**第二天**。更隐蔽：23:50 在屏2 能看到这些记录，过了 0 点再看屏2 它们"消失"了（其实在"昨天"）→ 训练日记日期错位、周/月容量统计跑偏，每逢跨天训练必复现 | `index.ux:614`；`index.ux:405`（今日视图同源） |
+| B5 | **计数无上限** | `+` 按钮是长按连续触发。想记 10 次，手抖多按几下没盯住屏幕 → 记成 100 次 | `incCount` 无上限（`decCount` 有下限 1），`volume = 重量 × 次数` 无校验 → **一条 100 次的记录把当天总容量抬到极高**，直接毁掉那天的统计数字与热力图颜色深浅，并持续污染周/月/全部的环比 | `index.ux:579,580` |
+| B6 | **已记录组无法修正** | 记完 5 组才发现重量记错了（把 40 记成 60） | `_enterEdit` 要求 `setsDone === 0`，而「删除」只在编辑态可见 → **改不了也删不掉**。唯一出路是删掉整个动作重新加一遍，或接受错误数据。**记录之后的任何修正能力都没有** | `index.ux:682` |
+| B7 | **手势冲突 + 编辑态错位** | 斜着滑时，以为在切动作，实际切了部位（或反过来） | 按 `X<168` 判半屏、竖直位移 >60px 即切换，手环小屏上纯竖直滑动很难画准。**更严重的是后半条**：`addToPlan` 的 `unshift`（`index.ux:532`）未重置 `editingIdx` → 你正在编辑第 3 项时新增一项插到最前，编辑态**错位到相邻项**，你点的「确定」改到了别的动作上（静默的错误修改） | `index.ux:477`；`index.ux:532` |
+| B8 | **小屏文字溢出** | 选到「双杠臂屈伸」「高位划船」这类长名字 | 动作名 52px、容器宽 336px、无 `max-lines`/`text-overflow` → **被裁掉或挤压变形**，你根本看不清当前选的是哪个动作——**而屏0 是全 app 最核心的操作界面** | `index.ux:159`；`index.ux:156` |
+| B9 | **聚合逻辑三份拷贝且已经不一致** | 对比屏2「今日数据」、屏3「历史」、汇总页的容量 | `_buildToday`（`index.ux:405`）、`_buildLog`（`index.ux:766`）、`pages/summary` 各写一遍同样的聚合；`_buildLog` 内部还对同一天先算 `dayVol` 再重算 `tr2/tv2`。**三处显示的容量可能对不上**，改一处口径还得记得改三处 | `index.ux:405,766` |
+| B10 | **保存的 summary 页根本不可达** | 记录结束后期待看到「训练完成」汇总 | `manifest.json` 只注册 `pages/home`，全项目无 `router.push('/pages/summary')`，`index.ux` 只是切到屏 2。**`pages/summary/index.ux` 是死代码** | `manifest.json:21-26` |
+
+---
+
+## 四、P2 · 技术债
+
+| # | 端 | 问题 | 代价 | 状态 |
+|:--:|---|---|---|:--:|
+| P2-1 | 跨端 | **零测试、无 CI** | `StatsEngine`（区间/环比/PR/热力图算法）、`TrainingParser`（JSON 解析）、`MuscleMap`（模糊匹配分类）全是**纯函数**，最适合写测试却一个都没有。实际代价：改数据透视时**没法用测试验证"选全部之后统计口径对不对"**，只能靠肉眼看图；**没有 CI 的直接代价已经发生过一次**——那个签名错误的包，构建时没有任何环节能拦住 | ❌ |
+| P2-2 | 手环 | **`index.ux` 804 行单文件** | 模板 + 样式 + 逻辑混在一起。很具体的代价：改一个字号要在 804 行里分别定位第 15 行和第 164 行两处；`_buildToday`/`_buildLog`/`summary` 三处各写一遍聚合逻辑，改口径极易漏改（已经不一致） | ❌ |
+| P2-3 | 手机 | **`DashboardScreen` 509 行混着纯计算；`StatsEngine` 里已有实现却全未使用** | `monthStats`/`monthDelta`/`monthTrendPoints` 与 `StatsEngine.trendSeries`/`heatmapWeeks`/`weeklyStreak` **同一统计并存两套实现**（后者写了没人调）。改口径时只改一处就会不一致 | ❌ |
+| P2-4 | 仓库 | **媒体资产存了两份** | `健身动作库/` 2650 个文件 + `phone-app/app/src/main/assets/` 2649 个文件，同一批图/视频各存一份。工作区约 100 MB，只想改代码也得拉整个媒体库 | ❌ |
+| P2-5 | 仓库 | **二进制安装包入库** | `dist/*.rpk`、`demo-package/*.rpk` 曾入库，每次发版都产生二进制 diff | ✅ 已修（`.gitignore` 增加 `*.rpk`/`dist/`/`.temp_*/`，并从索引移除） |
+| P2-6 | 仓库 | **文档滞后于实现** | README 与实现多处不符，会持续误导后来者 | ✅ 已修（见第六节） |
+
+> **更正**：本报告早期版本写「`diag-band/build/`、`interconnect-demo-build/build/`、`.DS_Store` 等构建产物入库」——**不准确**。复查 `git ls-files` 后确认这些**并不在版本控制里**，`.gitignore` 的 `build/` 与 `.DS_Store` 早已挡住，它们只是留在磁盘上。
+
+---
+
+## 五、已修复记录
+
+| # | 项目 | 修复内容 |
+|:--:|---|---|
+| 1 | ✅ `.git` 757 MB 垃圾（P0-X4） | `git gc --prune=now`：785.6 MB → 28.5 MB。清理前已确认 0 个 unreachable commit，无历史丢失风险 |
+| 2 | ✅ rpk 签名错误导致断连（P0-X3） | 改用 `npm run release`；加装构建前指纹白名单校验 + 构建后日志扫描。详见 [`SIGNING.md`](SIGNING.md) |
+| 3 | ✅ 二进制安装包入库（P2-5） | `.gitignore` 增加 `*.rpk` / `dist/` / `.temp_*/`；从索引移除 4 个已跟踪的 rpk |
+| 4 | ✅ 文档滞后（P2-6） | README 全面重写（见第六节） |
+
+---
+
+## 六、文档与实现不一致（已于 2026-09-10 修正）
+
+以下是**修正前** README 与实现的偏差，现已全部订正，记录在此供追溯：
+
+| README 原文 | 实际实现 |
 |---|---|
-| **保存的 summary 页根本不可达** | `manifest.json:21-26` 只注册 `pages/home`；全项目无 `router.push('/pages/summary')`；`index.ux:641` 只是切到屏 2。`pages/summary/index.ux` 是死代码，而 README:158 声称"进入训练完成汇总页" |
-| **长按重量数字直接退出应用** | `index.ux:15` `onlongpress="exitApp"` → `index.ux:727-729` `router.back()`。计划页误触即退出且不存档，且与"长按=编辑/发送"的既有语义冲突 |
-| **屏号错位：划到历史页会触发诊断** | `index.ux:648-657` 判 `e.index === 3`，但 index 3 是历史屏，诊断屏是 index 4 → 每次进历史都发 `getReadyState` + 延迟 1.5 s 的 `diagnosis`，诊断屏反而不触发 |
-| **定时器/监听泄漏** | `index.ux:358,387` 的 `setTimeout` 未登记，`onDestroy`（`308-313`）只清 4 个具名定时器；`dbgReconnect`（`386`）重复 `interconnect-client.js:18` 的 `instance()`，旧 conn 无销毁、闭包捕获页面 `self`（`335`）无法释放 |
-| **跨零点归属错误** | `index.ux:604-605` 用**保存时刻**生成 `dateStr`，`405-407` 今日视图同源 → 23:50 开始、00:10 结束的训练整场归到次日；跨 0 点后原记录从"今日"消失 |
-| **计数无上限** | `index.ux:570-571` `decCount` 有下限 1，`incCount` 无上限；`confirmCount`（`576`）`volume = wt*reps` 无校验 |
-| **手势冲突 + 编辑态错位** | `index.ux:462-476` 按 X<168 判半屏、竖直位移 >60 px 即切换，与 swiper 横滑在对角手势下互抢；`addToPlan` 的 `unshift`（`523`）未重置 `editingIdx` → 编辑态错位到相邻项 |
-| **已记录组无法修正** | `_enterEdit`（`675`）要求 `setsDone === 0`，而"删除"只在编辑态可见 → 记完组既不能改重量也不能删组 |
-| **小屏文字溢出** | `index.ux:159/188/215/228` 无 `max-lines`/`text-overflow`，52 px 动作名超 6 字即溢出 336 px 容器 |
-| **聚合逻辑三份拷贝** | `_buildLog`（`764-788`）对同一天先算 `dayVol` 再重算 `tr2/tv2`；`_buildToday`（`412-422`）是第三份 |
+| "手环内置动作（9 个）" | `data.js` 实为 **26 个动作** |
+| versionName **1.0.61** | 现为 **1.0.66** |
+| 哑铃 10–50 / 步进 2 | `data.js` **10–60** |
+| 倒蹬 40–80 / 步进 10 | `data.js` **30–60 / 步进 5** |
+| 列出"六角杠铃""T杠划船" | `data.js` 中**不存在**这两个动作 |
+| "上下滑动切换 9 个训练动作" | 已改为**两级菜单**（左半屏选部位 / 右半屏选动作） |
+| "记录完成后进入训练完成汇总页" | 汇总页未注册路由，**不可达**（见 B10） |
+| "暂不开源" | 仓库公开可访问，现已正式采用 **MIT** |
+| 应用版本 3.1 / versionCode 7 | 手机端 **3.1.5 / 12** |
+
+**仍未同步的**：`docs/interconnect-plan.md` 与实现有偏离——文档 §6.1 要求 `cmd:"sync_records"` + `version` + 逐条 `ts`，实现发的是 `{type:'training-records',…}`；§6.4 **手机→手环下发完全未实现**（`interconnect-client.js:14-16` 把 `onMessage` 置 null，回调永不触发）；§5.2 的连接状态轮询也未实现。
 
 ---
 
-## 四、文档与实现不一致（README 需要修）
+## 七、仓库卫生
 
-README 写得很用心（379 行、图文并茂），但手环端章节已明显落后于代码：
-
-| README | 实际 |
-|---|---|
-| `README.md:341` "手环内置动作（9 个）" | `data.js` 实为 **26 个动作** |
-| `README.md:126` versionName **1.0.61** | `manifest.json:4` = **1.0.64** |
-| `README.md:345-346` 哑铃 10–50 / 步进 2 | `data.js:15` 10–**60** |
-| `README.md:352` 倒蹬 40–80 / 步进 10 | `data.js:30` **30–60 / 步进 5** |
-| `README.md:346,353` 列出"六角杠铃""T杠划船" | `data.js` 中**不存在**这两个动作 |
-| `README.md:153` "上下滑动切换 9 个训练动作" | 已改为**两级菜单**（左滑选部位 / 右滑选动作，`index.ux:462-467`） |
-| `README.md:158` "记录完成后进入训练完成汇总页" | 汇总页未注册，不可达 |
-| `README.md:194` 图表技术 "Canvas 自绘" | 正确，但 `build.gradle:103` 仍挂着没用上的 Vico |
-| `README.md:379` "暂不开源" | 仓库在 GitHub **公开可访问** |
-
-另有 `docs/interconnect-plan.md` 的设计与实现偏离：文档 §6.1 要求 `cmd:"sync_records"` + `version` + 逐条 `ts`，实现发的是 `{type:'training-records',...}`（`index.ux:745`）；§6.4 手机→手环下发**完全未实现**（`interconnect-client.js:14-16` 把 `onMessage` 置 null，第 46 行永不回调）；§5.2 的连接状态轮询也未实现。
+- **`.research/` 已正确忽略**，从未进入追踪（本机目录 `F:\DeepseekHarness\miband` 与仓库同名易混淆）。
+- **媒体重复**：`健身动作库/`（2650 文件）与 `phone-app/app/src/main/assets/`（2649 文件）各存一份。
+- **`diag-band`、`interconnect-demo-build`** 是小米官方 demo 的副本，含 `private.pem`；建议移出仓库或在 LICENSE 中明确标注来源与例外（现已在 README 许可证段注明其不在 MIT 范围内）。
+- **当前追踪文件数**：5439。
 
 ---
 
-## 五、仓库卫生
+## 八、建议修复顺序
 
-- **构建产物入库**：`diag-band/build/`、`interconnect-demo-build/build/`、`miband10pro-trainer/build/`、`dist/*.rpk`（二进制，每次发版都产生 diff）、`interconnect-demo-build/.DS_Store`。
-- **`健身动作库/index.html` 15 MB** 被跟踪，加上 1324 图片 + 1324 视频，导致 tracked 内容约 100 MB；而 `phone-app` 的 assets 是同一批媒体**再存一份**（2649 文件）——两个目录媒体重复。
-- **`.research/` 已正确忽略**，从未进入追踪；那 757 MB 垃圾是本地 blob 残留，非 `.research` 入库。（本机目录 `F:\DeepseekHarness\miband` 与仓库同名易混淆，实际 `.research` 一直是 untracked）
-- 未提交改动散落：`demo-package/*.rpk` 被改、`dist/1.0.63.rpk` 被删、`dist/1.0.64.rpk` 未跟踪——**二进制产物不该进 Git**，建议发布走 GitHub Releases 或 LFS。
-- `diag-band`、`interconnect-demo-build` 是小米官方 demo 的副本，含 `private.pem`；建议整体移出仓库或明确标注来源与用途。
+**第一优先：防丢数据（改动小、不碰签名）**
+
+1. `P0-B1` 手环端「解析失败即当空库」——`file-io.js` 区分"文件不存在"与"解析失败"，后者禁止保存
+2. `P0-M1` 手机端 `appendLine` 静默失败——改为返回失败并让 `ingest` 如实上报
+3. `P0-B2` 手环端保存加重入锁 + 原子写 + 失败回滚
+4. `P0-B3` 重量档位改钳位不回绕
+
+**第二优先：真机上会踩到的**
+
+5. `P1-B1` 移除 `onlongpress="exitApp"`
+6. `P1-B2` 修屏号错位（`e.index === 3` → `4`）
+7. `P1-B5` `incCount` 加上限 + `volume` 校验
+8. `P1-B4` 跨零点改用"训练开始时间戳"归属
+9. `P1-B6` 允许修正已记录组
+10. `P1-B3` 清理定时器与连接实例
+
+**第三优先：稳定性与体验**
+
+11. `P1-M4` 日期格式校验（防闪退，成本极低收益极高）
+12. `P1-M1` 修好「清除」按钮
+13. `P1-M3` 修 `DashboardScreen.kt:94` 的 key 误用
+14. `P1-M2` 五个页面的筛选/展开/搜索态改 `rememberSaveable`
+15. `P1-M5` `SimpleDateFormat` 换 `java.time`
+16. `P1-M7` ExoPlayer 补 Lifecycle + 音频焦点
+17. `P1-M8` `ExerciseLibrary.load` 移出 composition
+
+**第四优先：技术债与门禁**
+
+18. 补 `StatsEngine` / `TrainingParser` / `MuscleMap` 单测（这三个文件是纯函数，最容易起手）
+19. 删除 Vico 依赖，顺带去掉 `force core-ktx` 降级 hack
+20. 拆分 `index.ux` 与 `DashboardScreen`，把纯计算下沉并**复用 `StatsEngine` 已有实现**
+21. 决定 `pages/summary` 去留（注册路由或删除）
+22. 同步 `docs/interconnect-plan.md`；媒体资产迁 LFS 或去重
+
+**冻结区（不要动）**：`P0-X1` 签名密钥、`P0-X2` keystore 相关配置。详见 [`SIGNING.md`](SIGNING.md)。
 
 ---
 
-## 六、改进优先级
+## 九、总体评价
 
-**P0（本周内）**
+**这是一个完成度明显高于同类个人 Demo 的项目。** 通信链路（XMS Wearable SDK）、SAF 持久化、分片存储、双端联调诊断这些最容易烂尾的部分都真正跑通了，1324 个动作的资产完整可用；数据层抽象和"文件在数据就在"的持久化思路是经过思考的设计，不是堆砌。
 
-1. 轮换全部签名密钥 + 用 `git filter-repo` 从历史清除 + force-push；补齐 `.gitignore`（第 2 节第 1、2 条）
-   —— 注：此步**只因密钥**而做，与仓库体积无关（见第 2 节第 3 条更正）
-2. ✅ ~~`git gc --prune=now` 回收 757 MB~~ —— **已完成**，785.6 MB → 28.5 MB
-3. 修手环端持久化：读取失败禁止保存、原子写 + 备份、`endTraining` 重入锁与回滚
-4. 修 `appendLine` 静默失败 → 让 `ingest` 能上报真实的落盘失败
+**风险不在"算法"，而在三处「边界」**：
 
-**P1（一个月内）**
+1. **持久化可靠性不足**——手环端"解析失败即抹库"、手机端"写失败仍报成功"，这两条构成的数据丢失路径比任何 UI 瑕疵都值得优先投入；而且都属于「**看起来成功**」的失败模式，最难被用户及时察觉。
+2. **静默写入错误数据**——重量回绕（B3）、计数无上限（B5）、跨零点归属（B4）、编辑态错位（B7）四条都不会报错，只会安静地把错误数据写进记录，事后无法分辨真伪。**这比丢失更难处理**。
+3. **工程门禁缺位**——零测试、无 CI。签名那次事故已经证明代价：一个会让手环与手机彻底断连的包，从构建到交付全程没有任何环节能拦住。
 
-5. 手机端：`safeMax` 兜住除零、`rememberSaveable` 保住页面状态、`TrainingParser.parse` 校验日期格式、`SimpleDateFormat` 换 `java.time`
-6. 手环端：修屏号错位（`index.ux:648`）、移除 `onlongpress="exitApp"`、重量钳位、处理跨零点归属
-7. 决定 summary 页的去留：注册进路由，或删除并同步 README
-8. 删除未使用的 Vico 依赖，顺带去掉 `force core-ktx` 的降级 hack
-9. 修好"清除"按钮（`DebugScreen.kt:74` / `MainActivity.kt:118`）
+**代码风格与可读性没有明显问题**：无 TODO、无死注释、命名一致、注释解释动机。扣分项主要是两个超大文件（`index.ux` 804 行、`DashboardScreen.kt` 509 行 —— 后者已因抽出 `Components.kt` 从 573 行降下来）内部混杂了模板/样式/纯计算/UI，以及同一统计存在多套实现并存的情况。
 
-**P2（技术债）**
-
-10. 同步 README 与 `interconnect-plan.md` 到实现（动作数、版本号、屏结构、协议）
-11. 拆分 `index.ux`（795 行）：抽 `common/date-util.js`、`common/plan-store.js`、`pages/home/components/*`；把 `planItems/editingIdx/isCounting/delPending` 收敛为单一模式枚举
-12. 拆分 `DashboardScreen.kt`（573 行）与 `PivotCard.kt`（340 行），把纯计算下沉到 data 层并**复用已有的 `StatsEngine`**（`trendSeries`/`heatmapWeeks`/`weeklyStreak` 目前写了却全未使用，UI 各写一份）
-13. 引入最小可用的质量门禁：`app/src/test` 下先给 `StatsEngine`、`TrainingParser`、`MuscleMap` 这些纯函数补单测（当前**零测试**），加一个跑 `assembleRelease` 的 GitHub Actions
-14. 清理 `build/`、`dist/*.rpk`、`.DS_Store` 等入库产物；媒体资产迁 LFS 或去重
-
----
-
-## 七、总体评价
-
-**这是一个完成度明显高于同类个人 Demo 的项目。** 通信链路（XMS Wearable SDK）、SAF 持久化、分片存储、双端联调诊断这些最容易烂尾的部分都真正跑通了，1324 个动作的资产也完整可用；数据层抽象和"文件在数据就在"的持久化思路是经过思考的设计，不是堆砌。
-
-主要风险集中在三处，且都不在"算法"上，而在**边界与治理**：
-
-1. **仓库治理失守**——签名密钥泄到公开仓库，`.git` 里躺着 757 MB 垃圾。这跟代码水平无关，但后果最严重，必须最先处理。
-2. **持久化可靠性不足**——手环端"解析失败即抹库"、手机端"写失败仍报成功"，这两条构成的数据丢失路径比任何 UI 瑕疵都值得优先投入。
-3. **文档滞后于代码**——README 很漂亮但与实现已多处不符（9 vs 26 个动作、1.0.61 vs 1.0.64、汇总页不可达），会持续误导后来者。
-
-代码风格与可读性没有明显问题：无 TODO、无死注释、命名一致、注释解释动机；扣分项主要是两个超大文件（`index.ux` 795 行、`DashboardScreen.kt` 573 行）内部混杂了模板/样式/纯计算/UI，以及零测试带来的重构恐惧。
-
-**如果只做三件事**：轮换密钥并清理 Git 历史 → 修手环端持久化的数据丢失路径 → 补 `StatsEngine`/`TrainingParser` 的单测。这三件做完，项目的"可信度"会有质变。
+**如果只能先做三件事**：修 `P0-B1`（手环端解析失败即抹库）→ 修 `P0-M1`（手机端写失败仍报成功）→ 修 `P0-B3`（重量回绕）。前两条防丢数据，第三条防错数据，三处改动都很小，且**完全不触碰签名**。这三件做完，项目的"可信度"会有质变。

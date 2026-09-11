@@ -92,11 +92,12 @@ class RecordStore private constructor(private val context: Context) {
             val legacyLines = migrateLegacyInternalFiles()
             loadAllIntoIndex()
             if (legacyLines != null) {
-                // SAF 模式：旧行按 date 补进索引（不覆盖 SAF 已有数据），统一重写进 SAF 分片
+                // SAF 模式：旧行按 (日期, 动作, 重量) 合并进索引，统一重写进 SAF 分片。
+                // 用合并而不是「该日期已存在就跳过」，否则同一天的旧行里第一条之后的行会被丢掉。
                 synchronized(days) {
                     for (l in legacyLines) {
                         TrainingParser.parse(l)?.let { d ->
-                            if (!days.containsKey(d.date)) days[d.date] = d
+                            days[d.date] = TrainingMerger.merge(days[d.date], d)
                         }
                     }
                 }
@@ -187,7 +188,11 @@ class RecordStore private constructor(private val context: Context) {
             newCounts[f.name] = ls.size
             lines += ls.size
             for (l in ls) {
-                TrainingParser.parse(l)?.let { newDays[it.date] = it } // 同日期后行覆盖前行
+                // 同一天可能有多行（手环多次发送同一日期）→ 逐行折叠合并，而不是「后行覆盖前行」。
+                // 这同时把历史上被覆盖语义遮蔽掉的数据找了回来。
+                TrainingParser.parse(l)?.let { d ->
+                    newDays[d.date] = TrainingMerger.merge(newDays[d.date], d)
+                }
             }
             if (f.number > maxNum) maxNum = f.number
         }
@@ -246,17 +251,21 @@ class RecordStore private constructor(private val context: Context) {
                     prefs.edit().putString(KEY_TREE_URI, uri.toString()).apply()
                     val saf = SafBackend(context, uri)
                     if (saf.available()) {
-                        // 当前(旧目录/内部)数据 与 新目录既有数据 合并：新目录打底，当前数据同日期覆盖
+                        // 当前(旧目录/内部)数据 与 新目录既有数据 合并：新目录打底，当前数据按键覆盖
                         val oldLines = readAllLinesOf(backend)
                         val newExisting = readAllLinesOf(saf)
                         backend = saf
                         synchronized(days) {
                             days.clear()
                             for (l in newExisting) {
-                                TrainingParser.parse(l)?.let { days[it.date] = it }
+                                TrainingParser.parse(l)?.let { d ->
+                                    days[d.date] = TrainingMerger.merge(days[d.date], d)
+                                }
                             }
                             for (l in oldLines) {
-                                TrainingParser.parse(l)?.let { days[it.date] = it }
+                                TrainingParser.parse(l)?.let { d ->
+                                    days[d.date] = TrainingMerger.merge(days[d.date], d)
+                                }
                             }
                         }
                         persistAll()
@@ -304,9 +313,12 @@ class RecordStore private constructor(private val context: Context) {
                 return@submit
             }
             val isNewDate: Boolean
+            val merged: TrainingDay
             synchronized(days) {
                 isNewDate = !days.containsKey(day.date)
-                days[day.date] = day
+                // 同一天可能先后收到多份快照 → 按 (动作, 重量) 合并；不同日期互不影响
+                merged = TrainingMerger.merge(days[day.date], day)
+                days[day.date] = merged
             }
             var rolled = ""
             try {
@@ -325,7 +337,7 @@ class RecordStore private constructor(private val context: Context) {
                     rolled = " 新建分片$newName"
                 }
                 val target = currentShard!!
-                b.appendLine(target, day.rawJson)
+                b.appendLine(target, merged.rawJson)
                 synchronized(shardCounts) {
                     shardCounts[target] = (shardCounts[target] ?: 0) + 1
                 }
@@ -337,7 +349,7 @@ class RecordStore private constructor(private val context: Context) {
                 )
                 return@submit
             }
-            var reason = if (isNewDate) "新增日期" else "覆盖同日期"
+            var reason = if (isNewDate) "新增日期" else "合并同日期(${merged.records.size}个动作)"
             reason += rolled
             if (totalLines > COMPACT_WHEN_MORE_THAN) {
                 val beforeDays = dayCount()

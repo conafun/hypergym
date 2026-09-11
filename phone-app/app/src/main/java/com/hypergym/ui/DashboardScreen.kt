@@ -42,6 +42,29 @@ import java.util.Calendar
 
 private val RestGray = Color(0xFFEEF0F2)
 
+/** 热力图档数：有训练的天按容量「名次」平均分成 4 档 */
+private const val HEAT_LEVELS = 4
+
+/**
+ * 热力图色阶（未训练另用 [RestGray]）。两点考虑：
+ *
+ *  1. 用**实色**而不是给主色加透明度 —— alpha 叠在白卡上会发灰发脏。
+ *  2. 日期数字**保持白色不变**，所以 4 个档位都必须落在「白字看得清」的深度范围内。
+ *     实测白字放在 #E8836A 这类浅橙上对比度只有 2.7:1，根本读不出来；
+ *     因此色阶取「鲑橙 → 主橙 → 深橙 → 砖红」，靠明度 + 饱和度共同拉开差别
+ *     （白字对比度依次 3.15 : 3.55 : 4.57 : 6.38，全部达标；而浅橙 #E8836A 只有 2.66，读不出来）。
+ */
+private val HeatPalette = listOf(
+    Color(0xFFDD7355),
+    Color(0xFFE06040),
+    Color(0xFFC84E32),
+    Color(0xFFA63C24),
+)
+
+/** 日期数字颜色：已训练一律白字（**保持原样，不改**），只有未训练用深色 */
+private fun heatLabelColor(level: Int?): Color =
+    if (level != null) Color.White else HColors.TextPrimary
+
 private fun shiftMonth(key: String, delta: Int): String {
     val y = key.substring(0, 4).toInt()
     val m = key.substring(5, 7).toInt()
@@ -89,7 +112,20 @@ fun DashboardScreen(days: List<TrainingDay>, modifier: Modifier = Modifier) {
     val today = remember { DateUtils.today() }
     val volByDate = remember(sorted) { sorted.associate { it.date to it.totalVolume() } }
     val dayMap = remember(sorted) { sorted.associateBy { it.date } }
-    val maxVol = remember(sorted) { sorted.maxOfOrNull { it.totalVolume() } ?: 1.0 }
+    // 热力图分档：把有训练的天按容量从少到多排队，再按「名次」平均分成 HEAT_LEVELS 档。
+    // 用名次而不是「当天 ÷ 最大值」——否则只要有一天特别多，其余天就全被压到同一片浅色里，
+    // 看着几乎一样（这就是原来「看不出区别」的原因）。按名次分档则不管数据怎么分布都能铺满各档。
+    val heatLevel = remember(sorted) {
+        val vols = sorted.map { it.date to it.totalVolume() }.sortedBy { it.second }
+        val n = vols.size
+        if (n == 0) {
+            emptyMap()
+        } else {
+            vols.mapIndexed { i, (date, _) ->
+                date to (i * HEAT_LEVELS / n).coerceIn(0, HEAT_LEVELS - 1)
+            }.toMap()
+        }
+    }
     var range by remember { mutableStateOf(StatsEngine.Range.WEEK) }
     var selected by remember(sorted) { mutableStateOf(sorted.lastOrNull()?.date ?: today) }
     var expanded by remember { mutableStateOf(false) }
@@ -158,8 +194,7 @@ fun DashboardScreen(days: List<TrainingDay>, modifier: Modifier = Modifier) {
         }
         item {
             HeatmapCard(
-                volByDate = volByDate,
-                maxVol = maxVol,
+                heatLevel = heatLevel,
                 today = today,
                 selected = selected,
                 expanded = expanded,
@@ -187,8 +222,7 @@ fun DashboardScreen(days: List<TrainingDay>, modifier: Modifier = Modifier) {
 
 @Composable
 private fun HeatmapCard(
-    volByDate: Map<String, Double>,
-    maxVol: Double,
+    heatLevel: Map<String, Int>,
     today: String,
     selected: String,
     expanded: Boolean,
@@ -198,8 +232,8 @@ private fun HeatmapCard(
     onSelect: (String) -> Unit,
 ) {
     BlockCard {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            CardTitle("训练热力图")
+        // 只要热力图本身：标题等说明性文字一律不加（自用 App，图形含义一目了然）
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
             Text(
                 if (expanded) "收起 ▴" else "展开整月 ▾",
                 Modifier
@@ -216,9 +250,9 @@ private fun HeatmapCard(
         if (expanded) {
             MonthNav(displayedMonth, onMonthShift)
             Spacer(Modifier.height(8.dp))
-            MonthGrid(volByDate, maxVol, displayedMonth, today, selected, onSelect)
+            MonthGrid(heatLevel, displayedMonth, today, selected, onSelect)
         } else {
-            WeekStrip(volByDate, maxVol, today, selected, onSelect)
+            WeekStrip(heatLevel, today, selected, onSelect)
         }
     }
 }
@@ -251,8 +285,7 @@ private fun MonthNav(monthKey: String, onShift: (Int) -> Unit) {
 
 @Composable
 private fun WeekStrip(
-    volByDate: Map<String, Double>,
-    maxVol: Double,
+    heatLevel: Map<String, Int>,
     today: String,
     selected: String,
     onSelect: (String) -> Unit,
@@ -262,9 +295,7 @@ private fun WeekStrip(
             val d = DateUtils.offset(today, -i)
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 HeatCell(
-                    volume = volByDate[d] ?: 0.0,
-                    maxVol = maxVol,
-                    trained = volByDate.containsKey(d),
+                    level = heatLevel[d],
                     label = DateUtils.dayLabel(d),
                     isToday = d == today,
                     isSelected = d == selected,
@@ -283,8 +314,7 @@ private fun WeekStrip(
 
 @Composable
 private fun MonthGrid(
-    volByDate: Map<String, Double>,
-    maxVol: Double,
+    heatLevel: Map<String, Int>,
     monthKey: String,
     today: String,
     selected: String,
@@ -320,9 +350,7 @@ private fun MonthGrid(
                             label.isEmpty() || date == null -> Spacer(Modifier.aspectRatio(1f))
                             isFuture -> Box(Modifier.aspectRatio(1f).clip(RoundedCornerShape(11.dp)).background(RestGray.copy(alpha = 0.4f)))
                             else -> HeatCell(
-                                volume = volByDate[date] ?: 0.0,
-                                maxVol = maxVol,
-                                trained = volByDate.containsKey(date),
+                                level = heatLevel[date],
                                 label = label,
                                 isToday = isCurrentMonth && date == today,
                                 isSelected = date == selected,
@@ -339,20 +367,13 @@ private fun MonthGrid(
 
 @Composable
 private fun HeatCell(
-    volume: Double,
-    maxVol: Double,
-    trained: Boolean,
+    level: Int?,
     label: String,
     isToday: Boolean,
     isSelected: Boolean,
     onClick: () -> Unit,
 ) {
-    val bg = if (trained) {
-        val alpha = 0.35f + 0.65f * (volume / maxVol).toFloat().coerceIn(0f, 1f)
-        HColors.Primary.copy(alpha = alpha)
-    } else {
-        RestGray
-    }
+    val bg = if (level == null) RestGray else HeatPalette[level.coerceIn(0, HeatPalette.lastIndex)]
     val ring = when {
         isSelected -> Color.White
         isToday -> HColors.Primary
@@ -367,7 +388,7 @@ private fun HeatCell(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (trained) Color.White else HColors.TextPrimary)
+        Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = heatLabelColor(level))
     }
 }
 
