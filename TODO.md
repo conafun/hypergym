@@ -85,3 +85,33 @@ if (bw == null || ex.weight > bw) {
 - 同一天多次传输被覆盖（已修）
 - 肌群页「周/月」是滚动窗口而非自然周期（已修）
 - 手环读文件失败被静默当空库 → 整份覆盖（已修）
+
+---
+
+## ④ 本机环境备忘（换会话 / 换机器时会撞上）
+
+### push 必须走 Clash 代理，否则 TLS 握手被重置
+
+**现象**：`git push` / `git ls-remote` 报
+`fatal: unable to access '…': Recv failure: Connection was reset`
+
+**原因**：git **没有配代理**（`http.proxy` / `https.proxy` 都是空），走直连时
+TCP 能连上 `github.com:443`，但 HTTPS 握手阶段被重置。
+本机 Clash 在 `127.0.0.1:7897` 监听（Gradle 的依赖下载已经在用它，见 `phone-app/gradle.properties`）。
+
+**做法**：单次带代理推送，**不要改全局 git 配置**：
+
+```powershell
+git -c http.proxy=http://127.0.0.1:7897 -c https.proxy=http://127.0.0.1:7897 push origin main
+```
+
+### 其他已知坑
+
+| 坑 | 处理 |
+|---|---|
+| 沙箱受限模式禁止命名管道 → git 读凭据失败（Win32 error 5） | push 需要提权（`danger-full-access`）才能读 Windows 凭据管理器 |
+| 本机只有 Windows PowerShell 5.1，`.ps1` 不带 UTF-8 BOM 会按 GBK 解码 → 中文乱码 + 语法错误 | 用 `edit` 工具改完 `.ps1` 后**必须补回 BOM**（`edit` 会丢掉它） |
+| PowerShell 5.1 下 `$ErrorActionPreference='Stop'` 遇到原生命令写 stderr 会中止脚本 | 临时的原生命令调用要降级为 `Continue` + 判 `$LASTEXITCODE` |
+| PowerShell 函数名撞内置别名会静默失效（例：函数 `RP` 被别名 `rp` = `Remove-ItemProperty` 抢走，绘图一格没画） | 函数命名避开别名（用 `New-*` / `Get-*` 之类） |
+| `New-Object System.Drawing.Font('名字', 15*$x/1.35, …)` 会报 `op_Division` 失败 | 先把字号算进普通变量，再传给构造函数 |
+
