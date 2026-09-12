@@ -12,8 +12,11 @@
       手环工具链      miband10pro-trainer\node_modules（aiot-toolkit 2.0.5）
 
     产物统一复制到 demo-package/ 并固定命名，便于每次都在同一位置取包：
-      HyperGym-debug.rpk        手环端（aiot build → debug 签名）
-      HyperGym-Phone-debug.apk  手机端（assembleDebug）
+      HyperGym-release.rpk       手环端（aiot release → 正式签名 rpk）
+      HyperGym-Phone-debug.apk   手机端（assembleDebug）
+
+    手机端构建前会先跑 tools/sync-band-exercises.js，把手环 src/common/data.js 的
+    动作表同步成 BandExercises.kt —— 改了手环动作表，手机端分类会自动跟着变。
 
 .PARAMETER Bump
     构建前先把两端版本号各递增一位：
@@ -322,6 +325,16 @@ if ($doBand) {
 # ---------------- 4. 手机端构建 ----------------
 
 if ($doPhone) {
+    Write-Step '同步手环动作表 → 手机端'
+    # 手环 src/common/data.js 是动作分类的唯一权威来源。这里每次构建前重新生成
+    # BandExercises.kt，保证「改了手环动作表，手机 APK 跟着变」，不会两边口径不一致。
+    # 生成失败（data.js 结构变了/动作重复/分组非法）会直接中止构建，不会把错数据打进包里。
+    $syncScript = Join-Path $root 'tools\sync-band-exercises.js'
+    if (-not (Test-Path $syncScript)) { throw "缺少动作表同步脚本：$syncScript" }
+    $syncLog = Join-Path $logDir "$stamp-sync.log"
+    Invoke-Native -Exe 'node' -Arguments @($syncScript) -What '手环动作表同步' -LogFile $syncLog
+    Get-Content $syncLog | Where-Object { $_.Trim() } | ForEach-Object { Write-Host "  $_" -ForegroundColor DarkGray }
+
     Write-Step '手机端构建 (assembleDebug)'
     $phoneLog = Join-Path $logDir "$stamp-phone.log"
     Push-Location $phoneDir

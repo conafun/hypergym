@@ -23,11 +23,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hypergym.data.ExerciseLibrary
 import com.hypergym.data.MuscleMap
 import com.hypergym.data.StatsEngine
 import com.hypergym.data.TrainingDay
@@ -40,11 +38,8 @@ private fun muscleColor(name: String): Color = Color(MuscleMap.colorOf(name))
 /** 肌群页：周/月切换 + 动作数据汇总(分组柱状图) + 肌群占比饼图 + 均衡度建议 */
 @Composable
 fun MuscleScreen(days: List<TrainingDay>, modifier: Modifier = Modifier) {
-    // 用动作库初始化肌群分类（各动作所训练的部位），一次即可
-    val context = LocalContext.current
-    val library = remember { ExerciseLibrary.load(context) }
-    remember(library) { MuscleMap.init(library) }
-
+    // 肌群分类已改为查手环动作表（BandExercises），是编译期常量，不再需要在这里初始化，
+    // 也不必再为分类解析 941 KB 的英文动作库。
     val sorted = remember(days) { days.sortedBy { it.date } }
     val today = remember { DateUtils.today() }
     var range by remember { mutableStateOf("WEEK") } // WEEK / MONTH / ALL

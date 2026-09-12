@@ -73,18 +73,25 @@ if (bw == null || ex.weight > bw) {
 
 ## ② 其他待确认 / 待办
 
-- （暂无。有新要求就往这里加，攒齐了一起改。）
+- **（可选）把动作表同步也接进 Gradle**：目前同步由 `build-debug.ps1` 在手机端构建前执行，
+  所以**走本脚本构建一定是最新的**；但若直接用 Android Studio 编译（不走脚本），
+  `BandExercises.kt` 会停留在上次生成的状态。若你以后习惯用 Studio，可加一个
+  `preBuild` 依赖去调 `tools/sync-band-exercises.js`。（2026-09-12 记）
+- **（可选）动作表移除动作时的历史兜底**：`tools/sync-band-exercises.js` 检测到动作被从
+  `data.js` 删掉时会打印提醒，让你去 `MuscleMap.kt` 的 `LEGACY_ALIASES` 补一条映射；
+  这一步是**人工的**，不做的话旧记录会归到「其他」。
 
 ---
 
 ## ③ 已知的、暂不修的问题
 
-完整清单见 [`REVIEW.md`](REVIEW.md)（按「严重级别 × 手机端 / 手环端」整理，共 34 项，其中 28 项未修）。
-其中三条最要紧的已在 `v3.1.10 / v1.0.67` 修掉：
+完整清单见 [`REVIEW.md`](REVIEW.md)（按「严重级别 × 手机端 / 手环端」整理，共 35 项，其中 28 项未修）。
+其中四条已在 `v3.1.10 ~ v3.1.12` 修掉：
 
 - 同一天多次传输被覆盖（已修）
 - 肌群页「周/月」是滚动窗口而非自然周期（已修）
 - 手环读文件失败被静默当空库 → 整份覆盖（已修）
+- 动作分类与手环不一致（26 个动作错 6 个）+ 分类有页面顺序依赖（已修，见 `v3.1.12`）
 
 ---
 
@@ -110,7 +117,7 @@ git -c http.proxy=http://127.0.0.1:7897 -c https.proxy=http://127.0.0.1:7897 pus
 | 坑 | 处理 |
 |---|---|
 | 沙箱受限模式禁止命名管道 → git 读凭据失败（Win32 error 5） | push 需要提权（`danger-full-access`）才能读 Windows 凭据管理器 |
-| 本机只有 Windows PowerShell 5.1，`.ps1` 不带 UTF-8 BOM 会按 GBK 解码 → 中文乱码 + 语法错误 | 用 `edit` 工具改完 `.ps1` 后**必须补回 BOM**（`edit` 会丢掉它） |
+| 本机只有 Windows PowerShell 5.1，`.ps1` 不带 UTF-8 BOM 会按 GBK 解码 → 中文乱码 + 语法错误 | 用 `edit` 工具改完 `.ps1` 后**必须补回 BOM**（`edit` 会丢掉它）。已做成一键工具：`powershell -File tools\add-ps1-bom.ps1`（会补 BOM 并顺带做语法解析检查）。**2026-09-12 又踩了一次**：改完 `build-debug.ps1` 直接构建，报了一堆假的 `Unexpected token` |
 | PowerShell 5.1 下 `$ErrorActionPreference='Stop'` 遇到原生命令写 stderr 会中止脚本 | 临时的原生命令调用要降级为 `Continue` + 判 `$LASTEXITCODE` |
 | PowerShell 函数名撞内置别名会静默失效（例：函数 `RP` 被别名 `rp` = `Remove-ItemProperty` 抢走，绘图一格没画） | 函数命名避开别名（用 `New-*` / `Get-*` 之类） |
 | `New-Object System.Drawing.Font('名字', 15*$x/1.35, …)` 会报 `op_Division` 失败 | 先把字号算进普通变量，再传给构造函数 |
