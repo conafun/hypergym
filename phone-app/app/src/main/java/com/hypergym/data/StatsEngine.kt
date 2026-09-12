@@ -234,6 +234,27 @@ object StatsEngine {
     data class PrFlag(val exercise: String, val value: Double)
 
     /**
+     * 每个动作的**历史最高重量**（= 该动作当前的 PR）。
+     *
+     * 与 [prFlags] 的区别：[prFlags] 是「哪天打破了纪录」的**事件表**（日记页据此打徽章），
+     * 这里要的是「每个动作当前是多少」的**成绩表**（数据页 PR 卡片据此展示）。
+     *
+     * 只统计 `weight > 0` 的记录 —— 自重（0kg）按口径不算 PR，因此完全不出现在结果里。
+     */
+    fun bestWeights(days: List<TrainingDay>): Map<String, Double> {
+        val best = LinkedHashMap<String, Double>()
+        for (day in days) {
+            for (ex in day.records) {
+                if (ex.sets.isEmpty()) continue
+                if (ex.weight <= 0.0) continue
+                val cur = best[ex.exercise]
+                if (cur == null || ex.weight > cur) best[ex.exercise] = ex.weight
+            }
+        }
+        return best
+    }
+
+    /**
      * 每个动作的全时段「真实最大举重」纪录。
      * 只标记「打破此前纪录」的日子（首次记录不算 PR）。
      * 返回：date → 该日 PR 列表（动作 + 数值）。

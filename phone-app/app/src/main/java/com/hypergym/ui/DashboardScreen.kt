@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,6 +17,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hypergym.data.MuscleMap
 import com.hypergym.data.StatsEngine
 import com.hypergym.data.TrainingDay
 import java.util.Calendar
@@ -126,6 +130,8 @@ fun DashboardScreen(days: List<TrainingDay>, modifier: Modifier = Modifier) {
             }.toMap()
         }
     }
+    // 各动作的历史最高重量（= PR）。始终基于全部历史，不随上方的 周/月/全部 切换变化。
+    val prBest = remember(sorted) { StatsEngine.bestWeights(sorted) }
     var range by remember { mutableStateOf(StatsEngine.Range.WEEK) }
     var selected by remember(sorted) { mutableStateOf(sorted.lastOrNull()?.date ?: today) }
     var expanded by remember { mutableStateOf(false) }
@@ -205,6 +211,9 @@ fun DashboardScreen(days: List<TrainingDay>, modifier: Modifier = Modifier) {
             )
         }
         item { DayContentCard(day = dayMap[selected], date = selected, today = today) }
+        if (prBest.isNotEmpty()) {
+            item { PrCard(prBest) }
+        }
         item {
             RangePills(
                 options = listOf("WEEK" to "周", "MONTH" to "月", "ALL" to "全部"),
@@ -413,6 +422,68 @@ private fun DayContentCard(day: TrainingDay?, date: String, today: String) {
             groups.forEachIndexed { i, g ->
                 if (i > 0) HorizontalDivider(color = HColors.Border)
                 ExerciseGroupRow(g)
+            }
+        }
+    }
+}
+
+// ---------------- PR 纪录卡片 ----------------
+
+/**
+ * 「PR 纪录」卡片：每个动作的历史最高重量。
+ *
+ * - 按肌群分组（顺序沿用 [MuscleMap.groups]），**不写肌群名**，只用该肌群的颜色点表示
+ * - 一组一行：行首一个色点，后面跟该组的动作；组内按重量降序（最重的排最前）
+ * - 只显示有配重（weight > 0）的动作 —— 自重按口径不算 PR
+ * - 始终基于全部历史数据，不随页面顶部的「周 / 月 / 全部」变化
+ */
+@Composable
+private fun PrCard(prBest: Map<String, Double>) {
+    val grouped = remember(prBest) {
+        MuscleMap.groups.mapNotNull { g ->
+            val items = prBest.entries
+                .filter { MuscleMap.groupOf(it.key) == g.name }
+                .sortedByDescending { it.value }
+            if (items.isEmpty()) null else g to items
+        }
+    }
+    if (grouped.isEmpty()) return
+
+    BlockCard {
+        CardTitle("PR 纪录")
+        Spacer(Modifier.height(12.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            grouped.forEach { (group, items) ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                    Box(
+                        Modifier
+                            .padding(top = 5.dp)
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(Color(MuscleMap.colorOf(group.name))),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    // 用 FlowRow 承接这一组的动作：组内自动换行，且续行会对齐到本 FlowRow 的起点
+                    // （= 缩进到第一行文字下方），视觉上明确属于同一组
+                    FlowRow(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                        items.forEach { (name, weight) ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(name, fontSize = 11.sp, color = HColors.TextPrimary)
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "${StatsEngine.fmtDouble(weight)}kg",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = HColors.Primary,
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
