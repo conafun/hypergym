@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  自适应图标（API 26+）。两层都由 logo/front.svg 生成，生成流程见 README「应用图标」一节。
+    · ic_launcher_background = 渐变底色 + soft-light 纹理
+      （纹理的混合底就是渐变，必须与渐变同层；放进透明前景层会因「无底色可混合」而露出脏斑）
+    · ic_launcher_foreground = 11 个纯白矢量图元（哑铃），占画布宽 49.1%
+      完整落在 66dp 安全圆（画布 61.1%）内，因此任何遮罩形状都不会裁到图形
+  未采用 front2.svg：其哑铃占宽 72.7%，超出 72/108 的可见区，圆形遮罩会切掉最外侧配重片。
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@drawable/ic_launcher_background" />
-    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <background android:drawable="@mipmap/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
 </adaptive-icon>

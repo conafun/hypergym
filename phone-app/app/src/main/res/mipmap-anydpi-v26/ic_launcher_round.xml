@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  圆形启动器图标（API 26+）。内容与 ic_launcher.xml 相同：自适应图标由系统按启动器
+  自己的遮罩形状裁剪，这里无需区分圆/方。
+    · ic_launcher_background = 渐变底色 + soft-light 纹理
+    · ic_launcher_foreground = 11 个纯白矢量图元（哑铃），占画布宽 49.1%，在 66dp 安全圆内
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@drawable/ic_launcher_background" />
-    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <background android:drawable="@mipmap/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
 </adaptive-icon>

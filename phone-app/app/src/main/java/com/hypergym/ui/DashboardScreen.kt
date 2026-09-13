@@ -103,7 +103,9 @@ private fun monthTrendPoints(days: List<TrainingDay>, monthKey: String, today: S
     val firstCal = StatsEngine.parseDate("$monthKey-01") ?: return emptyList()
     val totalDays = firstCal.getActualMaximum(Calendar.DAY_OF_MONTH)
     val endDay = if (monthKey == today.substring(0, 7)) today.substring(8).toInt() else totalDays
-    return (endDay downTo 1).map { d ->
+    // 必须按日期**升序**：旧日期在左、新日期在右，与「周 / 全部」一致。
+    // （这里原本是 `endDay downTo 1`，导致「月」档把新日期排在左边，与另外两档相反。）
+    return (1..endDay).map { d ->
         val date = "$monthKey-${d.toString().padStart(2, '0')}"
         BarPoint(DateUtils.mdLabel(date), volByDate[date] ?: 0.0)
     }

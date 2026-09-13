@@ -52,6 +52,12 @@ fun VolumeBarChart(points: List<BarPoint>, modifier: Modifier = Modifier) {
     val slot = 34.dp
     val chartWidth = maxOf(320.dp, slot * points.size)
     val textMeasurer = rememberTextMeasurer()
+    // 打开/刷新后默认聚焦在**最新**的日期（滚到最右端），与「动作数据汇总」「数据透视」一致。
+    // 先等布局算出 maxValue（首帧为 0）再滚，用户之后手动滚动不会被重置。
+    LaunchedEffect(points) {
+        snapshotFlow { scrollState.maxValue }.filter { it > 0 }.first()
+        scrollState.scrollTo(scrollState.maxValue)
+    }
     Box(modifier = modifier.fillMaxWidth().horizontalScroll(scrollState)) {
         Canvas(Modifier.width(chartWidth).height(160.dp)) {
             val max = points.maxOfOrNull { it.value } ?: 1.0
