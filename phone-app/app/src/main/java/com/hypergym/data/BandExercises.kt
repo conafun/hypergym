@@ -9,7 +9,7 @@ package com.hypergym.data
  * 手环端动作表是动作分类的唯一权威来源；手机端只做「按名字精确查表 + 少量历史兜底」，
  * 详见 [MuscleMap]。
  *
- * 本次生成：26 个动作，分组 胸/肩/背/腿/臂/核心
+ * 本次生成：28 个动作，分组 胸/肩/背/腿/臂/核心
  */
 internal object BandExercises {
 
@@ -56,6 +56,8 @@ internal object BandExercises {
         "面拉" to "肩",
         "引体向上" to "背",
         "双杠臂屈伸" to "胸",
+        "实力推" to "肩",
+        "火箭推" to "腿",
         "牧师椅" to "臂",
     )
 

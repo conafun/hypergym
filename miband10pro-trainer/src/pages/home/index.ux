@@ -172,10 +172,16 @@
   .rec-timebar { width: 336px; height: 34px; display: flex; flex-direction: row; align-items: center; justify-content: flex-end; padding: 0 34px; }
   .rec-time { font-size: 20px; color: #888888; font-weight: 600; }
   .rec-count-wrap { width: 336px; height: 480px; display: flex; flex-direction: column; align-items: center; background-color: #000000; }
-  .rec-count-ex { font-size: 26px; color: #888888; font-weight: 600; margin-top: 90px; margin-bottom: 60px; }
-  .rec-count-row { width: 336px; display: flex; flex-direction: row; align-items: center; justify-content: center; padding: 0 24px; margin-bottom: 60px; }
-  .rec-count-num { font-size: 80px; color: #30d158; font-weight: 700; margin: 0 20px; min-width: 80px; text-align: center; }
-  .rec-count-btn-wrap { width: 336px; display: flex; align-items: center; justify-content: center; padding: 0 24px; margin-bottom: 20px; }
+  /* 顶部「动作名 重量」这一行：
+     · line-height 必须显式给足（26px 字号配 36px），否则文字盒只按 em 盒算，
+       "kg" 的 g 下缘（降部）会落在盒外被切掉，看上去像 "ka" —— 这正是之前的现象。
+     · flex-shrink:0 与 .rec-count-btn 同理，防止浮层高度不够时 flex 把这一行压扁。
+     · margin-top 由 90 收到 52：把整行往上提，给中英文字留出完整显示的空间。 */
+  .rec-count-ex { font-size: 26px; line-height: 36px; color: #888888; font-weight: 600; flex-shrink: 0; margin-top: 52px; margin-bottom: 32px; }
+  /* margin-bottom 由 60 收到 36，配合下面几处，把整屏高度压进 480px，避免 flex 压缩子项 */
+  .rec-count-row { width: 336px; display: flex; flex-direction: row; align-items: center; justify-content: center; padding: 0 24px; margin-bottom: 36px; }
+  .rec-count-num { font-size: 80px; line-height: 92px; color: #30d158; font-weight: 700; flex-shrink: 0; margin: 0 20px; min-width: 80px; text-align: center; }
+  .rec-count-btn-wrap { width: 336px; display: flex; align-items: center; justify-content: center; padding: 0 24px; margin-bottom: 16px; }
   .rec-count-btn { height: 90px; display: flex; align-items: center; justify-content: center; border-radius: 24px; background-color: #30d158; padding: 0 44px; flex-shrink: 0; }
   .rec-count-btn-text { font-size: 28px; color: #ffffff; font-weight: 700; }
   .rec-count-btn-cancel { background-color: #111111; border-width: 2px; border-style: solid; border-color: #333333; }

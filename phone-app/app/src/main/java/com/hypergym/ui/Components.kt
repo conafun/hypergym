@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -130,22 +131,44 @@ private fun setsSummaryOf(ex: ExerciseRecord): String =
     if (ex.weight <= 0.0) "共${ex.sets.sumOf { it.reps }}个"
     else "容量 ${fmtComma(ex.sets.sumOf { it.volume })} kg"
 
-/** 次数 chips + 右侧汇总数字 */
+/** 每行最多放几个组数 chip；超出的部分折到下一行 */
+private const val SETS_PER_ROW = 6
+
+/**
+ * 次数 chips + 汇总数字（汇总数字**一律右对齐**，与组数多少无关）。
+ *
+ * 组数多的时候只有 **chips** 会折行：每行最多 [SETS_PER_ROW] 个，多出来的落到下一行；
+ * 汇总数字始终跟在最后一行并贴右。这样无论 4 组还是 8 组，汇总数字都落在同一条竖线上，
+ * 便于纵向扫读、也更醒目。
+ *
+ * 背景：旧实现把汇总数字塞在 chips 的同一个 Row 里，8 组时 chips 占满宽度，
+ * 汇总被压成逐字竖排（"共80个" 变成一列、"容量 4,560 kg" 被切成两行）。
+ */
 @Composable
 private fun SetsLine(ex: ExerciseRecord) {
-    Row(
+    val rows = ex.sets.chunked(SETS_PER_ROW)
+    Column(
         Modifier.fillMaxWidth().padding(top = 3.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-            ex.sets.forEach { s -> SetChip("${s.reps}次") }
-            Text(
-                setsSummaryOf(ex),
-                fontSize = 11.sp,
-                color = HColors.Primary,
-                fontWeight = FontWeight.Bold,
-            )
+        rows.forEachIndexed { idx, chunk ->
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                chunk.forEach { s -> SetChip("${s.reps}次") }
+                // 汇总只挂在最后一行，Spacer(weight) 把它推到最右侧
+                if (idx == rows.lastIndex) {
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        setsSummaryOf(ex),
+                        fontSize = 11.sp,
+                        color = HColors.Primary,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
         }
     }
 }

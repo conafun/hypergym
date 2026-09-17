@@ -280,4 +280,24 @@ object StatsEngine {
         val r = kotlin.math.round(v * 10.0) / 10.0
         return if (r == r.toLong().toDouble()) r.toLong().toString() else r.toString()
     }
+
+    // ---------------- PR 百分比换算 ----------------
+
+    /**
+     * 取到最近的 **2.5kg**（四舍五入）。
+     *
+     * 杠铃片的最小可组合单位就是 2.5kg，所以「PR × 百分比」算出的理论值必须落到 2.5 的
+     * 整数倍，才是真正能上杠的重量。数据页 PR 卡片用它换算「实际用」区间。
+     *
+     * 例：75kg 的 65% = 48.75 → 50.0；54kg 的 65% = 35.1 → 35.0；38kg 的 70% = 26.6 → 27.5。
+     */
+    fun roundTo25(v: Double): Double = kotlin.math.round(v / 2.5) * 2.5
+
+    /**
+     * 固定保留 1 位小数。
+     *
+     * 与 [fmtDouble] 的区别：[fmtDouble] 整数不带小数点（75），本方法整数也补 `.0`（75.0）。
+     * [roundTo25] 的结果只会以 .0 / .5 结尾，所以 PR 卡片用它显示时格式天然统一。
+     */
+    fun fmtOneDecimal(v: Double): String = String.format(Locale.US, "%.1f", v)
 }

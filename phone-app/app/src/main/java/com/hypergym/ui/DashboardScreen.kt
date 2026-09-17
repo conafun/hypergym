@@ -1,14 +1,16 @@
 package com.hypergym.ui
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,11 +37,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hypergym.data.MuscleMap
+import com.hypergym.data.PrRangePrefs
 import com.hypergym.data.StatsEngine
 import com.hypergym.data.TrainingDay
 import java.util.Calendar
@@ -432,12 +439,27 @@ private fun DayContentCard(day: TrainingDay?, date: String, today: String) {
 // ---------------- PR 纪录卡片 ----------------
 
 /**
- * 「PR 纪录」卡片：每个动作的历史最高重量。
+ * 「PR 纪录」卡片：每个动作的历史最高重量，换算成可直接上杠的配重。
  *
- * - 按肌群分组（顺序沿用 [MuscleMap.groups]），**不写肌群名**，只用该肌群的颜色点表示
- * - 一组一行：行首一个色点，后面跟该组的动作；组内按重量降序（最重的排最前）
- * - 只显示有配重（weight > 0）的动作 —— 自重按口径不算 PR
- * - 始终基于全部历史数据，不随页面顶部的「周 / 月 / 全部」变化
+ * **肌群可折叠**（默认全部收起，点肌群行才展开，可同时展开多个）：
+ * ```
+ * PR 纪录                     实际用范围 [65]%–[70]%
+ * ● 胸                                 4 个动作  ▸
+ * ● 肩                                 5 个动作  ▸
+ * ```
+ * 展开后每个动作一行（动作行只用**肌群色点**标识归属，不重复写肌群名）：
+ * ```
+ * ● 卧推        75kg        50.0–52.5kg
+ * ```
+ *
+ * 规则：
+ *  - 分组顺序沿用 [MuscleMap.groups]；组内按重量降序（最重的排最前）
+ *  - 只显示有配重（weight > 0）的动作 —— 自重按口径不算 PR
+ *  - PR 取法不变（[StatsEngine.bestWeights]），始终基于全部历史，不随「周 / 月 / 全部」变化
+ *  - 配色：PR 用主题橙，换算结果用主文字色（黑）
+ *  - 「实际用」= PR × 上下限百分比，各自取到最近的 2.5kg（[StatsEngine.roundTo25]），
+ *    两端相同则只显示一个值。百分比可手输且**持久保存**（[PrRangePrefs]），
+ *    所以 PR 更新或百分比改动后，下面的数字都会立即重算。
  */
 @Composable
 private fun PrCard(prBest: Map<String, Double>) {
@@ -451,36 +473,89 @@ private fun PrCard(prBest: Map<String, Double>) {
     }
     if (grouped.isEmpty()) return
 
+    val context = LocalContext.current
+    // 首次从持久化读，之后由输入框驱动；输入不合法（空/非数字）时回落到上一次的有效值
+    val saved = remember { PrRangePrefs.load(context) }
+    var loText by remember { mutableStateOf(saved.first.toString()) }
+    var hiText by remember { mutableStateOf(saved.second.toString()) }
+    val lo = loText.toIntOrNull()?.coerceIn(PrRangePrefs.MIN_PCT, PrRangePrefs.MAX_PCT) ?: saved.first
+    val hi = hiText.toIntOrNull()?.coerceIn(PrRangePrefs.MIN_PCT, PrRangePrefs.MAX_PCT) ?: saved.second
+    val pctLo = minOf(lo, hi)     // 允许反着填，小的当低值、大的当高值
+    val pctHi = maxOf(lo, hi)
+
+    var openGroups by remember { mutableStateOf(emptySet<String>()) }
+
     BlockCard {
-        CardTitle("PR 纪录")
-        Spacer(Modifier.height(12.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            grouped.forEach { (group, items) ->
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                    Box(
-                        Modifier
-                            .padding(top = 5.dp)
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(Color(MuscleMap.colorOf(group.name))),
-                    )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            CardTitle("PR 纪录", Modifier.weight(1f))
+            Text("实际用范围", fontSize = 10.sp, color = HColors.TextSecondary, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.width(6.dp))
+            PctField(loText) { v -> loText = v; persistPct(context, v, hiText) }
+            PctSign()
+            Text(
+                "–",
+                fontSize = 11.sp,
+                color = HColors.TextSecondary,
+                modifier = Modifier.padding(horizontal = 3.dp),
+            )
+            PctField(hiText) { v -> hiText = v; persistPct(context, loText, v) }
+            PctSign()
+        }
+        Spacer(Modifier.height(6.dp))
+
+        grouped.forEachIndexed { gi, (group, items) ->
+            val open = group.name in openGroups
+            if (gi > 0) HorizontalDivider(thickness = 1.dp, color = HColors.Border)
+            Column(Modifier.fillMaxWidth()) {
+                // 折叠头：点整行开/关
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            openGroups = if (open) openGroups - group.name else openGroups + group.name
+                        }
+                        .padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    GroupDot(group.name)
+                    Spacer(Modifier.width(8.dp))
+                    Text(group.name, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = HColors.TextPrimary)
+                    Spacer(Modifier.weight(1f))
+                    Text("${items.size} 个动作", fontSize = 11.sp, color = HColors.TextSecondary)
                     Spacer(Modifier.width(6.dp))
-                    // 用 FlowRow 承接这一组的动作：组内自动换行，且续行会对齐到本 FlowRow 的起点
-                    // （= 缩进到第一行文字下方），视觉上明确属于同一组
-                    FlowRow(
-                        modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(5.dp),
-                    ) {
+                    Text(if (open) "▾" else "▸", fontSize = 10.sp, color = HColors.TextSecondary)
+                }
+                if (open) {
+                    Column(Modifier.fillMaxWidth().padding(start = 14.dp, bottom = 6.dp)) {
                         items.forEach { (name, weight) ->
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(name, fontSize = 11.sp, color = HColors.TextPrimary)
-                                Spacer(Modifier.width(4.dp))
+                            Row(
+                                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                GroupDot(group.name)
+                                Spacer(Modifier.width(7.dp))
+                                Text(
+                                    name,
+                                    Modifier.weight(1f),
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = HColors.TextPrimary,
+                                )
                                 Text(
                                     "${StatsEngine.fmtDouble(weight)}kg",
-                                    fontSize = 11.sp,
+                                    Modifier.width(56.dp),
+                                    fontSize = 12.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = HColors.Primary,
+                                    textAlign = TextAlign.End,
+                                )
+                                Text(
+                                    useRangeLabel(weight, pctLo, pctHi),
+                                    Modifier.width(86.dp),
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = HColors.TextPrimary,
+                                    textAlign = TextAlign.End,
                                 )
                             }
                         }
@@ -488,6 +563,75 @@ private fun PrCard(prBest: Map<String, Double>) {
                 }
             }
         }
+    }
+}
+
+/** 肌群色点 */
+@Composable
+private fun GroupDot(groupName: String) {
+    Box(Modifier.size(6.dp).clip(CircleShape).background(Color(MuscleMap.colorOf(groupName))))
+}
+
+/**
+ * 「实际用」文案：PR × 上下限百分比，各自取到最近的 2.5kg（四舍五入）；两端相同则只显示一个值。
+ * 结果固定 1 位小数，所以只会出现 .0 / .5。
+ */
+private fun useRangeLabel(weight: Double, pctLo: Int, pctHi: Int): String {
+    val low = StatsEngine.roundTo25(weight * pctLo / 100.0)
+    val high = StatsEngine.roundTo25(weight * pctHi / 100.0)
+    return if (low == high) "${StatsEngine.fmtOneDecimal(low)}kg"
+    else "${StatsEngine.fmtOneDecimal(low)}–${StatsEngine.fmtOneDecimal(high)}kg"
+}
+
+/** 百分比输入框：只收数字、最多 3 位，居中显示 */
+@Composable
+private fun PctField(value: String, onChange: (String) -> Unit) {
+    Box(
+        Modifier
+            .width(38.dp)
+            .height(26.dp)
+            .clip(RoundedCornerShape(7.dp))
+            .background(HColors.Background)
+            .border(1.dp, HColors.Border, RoundedCornerShape(7.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = { s -> onChange(s.filter { it.isDigit() }.take(3)) },
+            singleLine = true,
+            textStyle = TextStyle(
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.Bold,
+                color = HColors.Primary,
+                textAlign = TextAlign.Center,
+            ),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            cursorBrush = SolidColor(HColors.Primary),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+/** 百分比后面的「%」 */
+@Composable
+private fun PctSign() {
+    Text(
+        "%",
+        fontSize = 10.5.sp,
+        color = HColors.TextSecondary,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(start = 3.dp),
+    )
+}
+
+/** 两个百分比都合法才落盘，避免输入途中把半截数字写进去 */
+private fun persistPct(context: Context, lo: String, hi: String) {
+    val a = lo.toIntOrNull() ?: return
+    val b = hi.toIntOrNull() ?: return
+    if (a in PrRangePrefs.MIN_PCT..PrRangePrefs.MAX_PCT &&
+        b in PrRangePrefs.MIN_PCT..PrRangePrefs.MAX_PCT
+    ) {
+        PrRangePrefs.save(context, a, b)
     }
 }
 
