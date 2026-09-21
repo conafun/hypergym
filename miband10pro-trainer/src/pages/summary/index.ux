@@ -90,7 +90,8 @@ export default {
   onInit: function() {
     var self = this
     var passedDate = this.params && this.params.date ? this.params.date : ''
-    fileIO.readRecords(function(allRecords) {
+    fileIO.readData(function(state) {
+      var allRecords = (state && state.records) || {}
       var date = passedDate
       if (!date) {
         var dates = Object.keys(allRecords || {})

@@ -8,6 +8,7 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.hypergym.data.RecordStore
+import com.hypergym.data.StatsEngine
 import com.hypergym.ui.AppCallbacks
 import com.hypergym.ui.HyperGymApp
 import com.hypergym.ui.UiState
@@ -20,6 +21,7 @@ import com.xiaomi.xms.wearable.node.Node
 import com.xiaomi.xms.wearable.node.NodeApi
 import com.xiaomi.xms.wearable.service.OnServiceConnectionListener
 import com.xiaomi.xms.wearable.service.ServiceApi
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -58,6 +60,9 @@ class MainActivity : ComponentActivity() {
                     runOnUiThread {
                         if (r.ok) {
                             addLog("S05 已落盘 date=${r.date} | ${r.reason} | 共${r.dayCount}天 ${r.fileCount}个文件(${r.totalLines}行)")
+                            // 落盘成功后，把手里的 PR 全量表回传给手环（手环屏0 用它显示「PR xxkg」参考值）。
+                            // 只在这一个时机触发：手环每发一次训练数据 = 一次双向交换，不额外加触发器。
+                            sendPrSync(nodeId)
                         } else {
                             addLog("S06 ${r.reason}")
                         }
@@ -321,6 +326,35 @@ class MainActivity : ComponentActivity() {
         messageApi?.sendMessage(nodeId, reply.toByteArray())
             ?.addOnSuccessListener { addLog("P13 已回包给手环") }
             ?.addOnFailureListener { addLog("P14 回包失败: ${it.message}") }
+    }
+
+    /**
+     * 把手环需要的 PR 全量表下发给它（手环屏0 显示「PR xxkg」参考值）。
+     *
+     * 手机**不维护**「已下发过什么」的镜像 —— PR 每次都从全部历史现算（[StatsEngine.bestWeights]），
+     * 所以这里每次都是**全量**下发。好处：不需要 diff、不需要版本令牌，手环重装或两边不一致
+     * 都会在下一次下发时被整体覆盖修正。整表约 28 项、几百字节，比一条训练记录还小。
+     *
+     * 手环侧对应 `index.ux` 的 `_applyPrSync()`（收到后整体替换并落盘）。
+     *
+     * 注意：只有「带配重」的动作才有 PR（`weight > 0`），所以表里通常不足 28 项；
+     * 手环上没出现的动作就不显示那一行。
+     */
+    private fun sendPrSync(nodeId: String) {
+        val prs = StatsEngine.bestWeights(recordStore.snapshotDays())
+        if (prs.isEmpty()) {
+            addLog("P18 暂无 PR 可下发（还没有带配重的记录）")
+            return
+        }
+        val prsObj = JSONObject()
+        for ((name, weight) in prs) prsObj.put(name, weight)
+        val msg = JSONObject()
+            .put("type", "pr-sync")
+            .put("prs", prsObj)
+            .toString()
+        messageApi?.sendMessage(nodeId, msg.toByteArray())
+            ?.addOnSuccessListener { addLog("P18 已下发 PR 表（${prs.size} 项）") }
+            ?.addOnFailureListener { addLog("P19 PR 表下发失败: ${it.message}") }
     }
 
     // Manual test: phone → band direction

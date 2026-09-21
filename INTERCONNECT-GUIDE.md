@@ -154,6 +154,7 @@ conn.diagnosis({ success: (res) => {} })       // 【不能传 timeout 参数】
 | B08 | Ping 发送成功/失败 |
 | B09 | 收到手机消息 |
 | B10 | 收到手机回包 = 双向打通 |
+| B11 | 收到 PR 全量表并已更新（带项数）/ 解析失败已忽略 |
 
 ### 手机端 P 码（日志区）
 | 代码 | 含义 |
@@ -169,6 +170,8 @@ conn.diagnosis({ success: (res) => {} })       // 【不能传 timeout 参数】
 | P13/P14 | 自动回包成功 / 失败 |
 | P15/P16 | 测试发送成功 / 失败 |
 | P17 | 手环端应用是否已注册（FALSE=服务不认识手环App） |
+| P18 | PR 全量表下发成功（带项数）/ 暂无可下发的 PR |
+| P19 | PR 全量表下发失败 |
 
 ### 判定速查
 - 手环 B05 code=1001 → 手机 App 没装/包名对不上
@@ -179,7 +182,7 @@ conn.diagnosis({ success: (res) => {} })       // 【不能传 timeout 参数】
 
 ---
 
-## 6. 当前数据协议（v1.0.61）
+## 6. 当前数据协议
 
 ### 手环 → 手机（业务数据）
 ```json
@@ -196,6 +199,22 @@ conn.diagnosis({ success: (res) => {} })       // 【不能传 timeout 参数】
 ```json
 { "type": "ping-reply", "t": 1755000000001, "src": "phone" }
 ```
+
+### 手机 → 手环（PR 全量表，v1.0.69 起）
+```json
+{ "type": "pr-sync", "prs": { "卧推": 75, "高位下拉": 54 } }
+```
+- **触发时机**：手环每发一次 `training-records` 且手机**落盘成功**后，手机立刻回一包。
+  没有其它触发器 —— 一次发送就是一次双向交换。
+- **每次都是全量**：手机不维护"已下发过什么"的镜像，PR 由 `StatsEngine.bestWeights(全部历史)` 现算。
+  好处是不需要 diff、不需要版本令牌；手环重装、数据丢失、两边不一致都会在下一次下发时被整体覆盖修正。
+- **只有带配重的动作**（`weight > 0`）才有 PR，所以通常不足 28 项；手环上没有的动作就不显示那一行。
+- **手环侧处理**：`index.ux` 的 `_applyPrSync()` —— 整体替换 `int_prs`，立刻刷新屏0 的 PR 行，
+  并把 `prs` 与 `records` **一起**写回 `internal://files/training_data.json`（该文件是全量覆盖写，
+  格式 `version` 由 1 升到 2）。老文件没有 `prs` 字段 → 读出来是空表 → 下次同步全量补齐，
+  **不需要额外的判断代码**。
+- **向后兼容**：老 rpk 不认识 `pr-sync`，现在的代码只会记一条 B09 日志，无害；
+  手环发来的消息里没有任何新增字段，所以老 rpk 与新手机也能正常配对。
 
 ### 手机端存储策略（增量分片落盘，v2.2 起；v1.1 单文件已兼容）
 - **目标：文件在数据就在** —— 卸载重装手机 App 后训练记录不丢；**展示页直接读文件夹，无需手环重传**
@@ -249,7 +268,10 @@ F:\DeepseekHarness\miband\phone-app\gradlew.bat -p F:\DeepseekHarness\miband\pho
 
 ### 🔒 冻结约定（v2.2 起，全版本保持，不再改动）
 > 传输链路已走通，用户拍板封板。以后所有版本 APK 只允许动 UI/UX 层，以下一律不动：
-- **传输协议**：手环 `system.interconnect`（training-records / ping / ping-reply，v1.0.61）→ 手机 xms-wearable SDK；调试码 P01–P17 / B00–B10 含义不变
+- **传输协议**：手环 `system.interconnect`（training-records / ping / ping-reply）→ 手机 xms-wearable SDK；调试码 P01–P17 / B00–B10 含义不变
+  - 唯一一次**附加式**扩展（v1.0.69，用户要求）：新增 `pr-sync`（手机→手环下发 PR 全量表），
+    **不修改上面任何既有消息**，新增调试码 B11 / P18 / P19。老 rpk 收到它只会记一条 B09，无害；
+    手环发出的消息字段没有任何新增，所以新老组合都能配对。
 - **存储设定**：SAF 目录为主 + 内部兜底；`records-NNNN.jsonl` 分片、30 行/文件自动轮换；JSONL append-only；date 去重；启动/回前台全目录重扫；诊断页「重扫目录」按钮保留
 - **包名/签名**：`com.hypergym` + 同一证书；升级规则不变（APK 覆盖安装，RPK 卸载重装）
 - **统计引擎**：`StatsEngine.kt` / `MuscleMap.kt` 的纯函数接口（UI 只消费，不改算法签名）

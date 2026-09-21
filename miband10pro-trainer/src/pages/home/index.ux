@@ -15,6 +15,8 @@
           <text class="plan-wt-val" style="font-size: {{wtFontSize}}" onlongpress="exitApp">{{wtText}}</text>
           <div class="plan-wt-btn" onclick="nextWt"><text class="plan-wt-arr">›</text></div>
         </div>
+        <!-- 该动作的 PR（手机下发），选重量时的参考值；没有 PR 数据时不显示 -->
+        <text class="plan-pr" if="{{prText}}">{{prText}}</text>
         <div class="plan-spacer"></div>
         <div class="plan-buttons">
           <div class="plan-btn-only" onclick="addToPlan">
@@ -159,6 +161,14 @@
   .plan-ex-current { font-size: 52px; color: #ffffff; font-weight: 700; }
   .plan-ex-below { font-size: 20px; color: #333333; font-weight: 500; margin-top: 6px; }
   .plan-wt-area { width: 336px; height: 100px; display: flex; flex-direction: row; align-items: center; justify-content: center; margin-top: 20px; }
+  /* 屏0 的 PR 参考行。
+     可读性：22px + 纯白 #ffffff（黑底对比度 21:1）。之前用 18px + #666666 只有 3.66:1，
+     用户近视看不清。**刻意不用绿色**：#30d158 是大号重量数字的颜色，眯眼看容易把这行
+     误读成"当前要举的重量"（以为在举 75 其实是 45），白色则与动作名同色、不会混淆。
+     高度账：ex-area 190 + wt-area 120 + 本行(30+0) + buttons 130 = 470 ≤ 480，不挤压现布局。
+     必须给显式 line-height 且 flex-shrink:0 —— 否则文字盒会被压到行高以下，
+     "kg" 的 g 降部会被切掉（计数浮层上踩过同一个坑）。 */
+  .plan-pr { font-size: 22px; line-height: 30px; color: #ffffff; font-weight: 600; flex-shrink: 0; margin-top: 0; }
   .plan-wt-btn { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 25px; background-color: #111111; }
   .plan-wt-arr { font-size: 28px; color: #666666; font-weight: 600; }
   .plan-wt-val { color: #ffffff; font-weight: 700; margin: 0 20px; }
@@ -269,6 +279,7 @@ export default {
     exAbove: '',
     exCurrent: '',
     exBelow: '',
+    prText: '',
     catColor: '#9CCFBF',
     wtCurrent: 0,
     wtText: '',
@@ -302,6 +313,7 @@ export default {
     this.int_wtIdx = 1
     this.int_weights = []
     this.int_records = {}
+    this.int_prs = {}
     this.int_logPressTimer = null
     this._initPlan()
     this._syncRecList()
@@ -330,11 +342,43 @@ export default {
     else if (evt === 'error') { code = 'B05'; txt = '通道错误 code=' + (data && data.code) + ' ' + (data && data.data) }
     else if (evt === 'message') {
       var raw = String(data && data.data)
-      if (raw.indexOf('ping-reply') >= 0) { code = 'B10'; txt = '收到手机回包 双向打通!' }
+      if (raw.indexOf('pr-sync') >= 0) {
+        var cnt = this._applyPrSync(raw)
+        if (cnt >= 0) { code = 'B11'; txt = '已更新 PR 表(' + cnt + ' 项)' }
+        else { code = 'B11'; txt = 'PR 表解析失败，已忽略' }
+      }
+      else if (raw.indexOf('ping-reply') >= 0) { code = 'B10'; txt = '收到手机回包 双向打通!' }
       else { code = 'B09'; txt = '收到手机消息: ' + raw.slice(0, 36) }
     }
     else { return }
     this._dbgLog(code, txt)
+  },
+
+  /**
+   * 应用手机下发的 PR 全量表。
+   *
+   * 手机**每次都是全量下发**（它不维护"发过什么"的镜像，PR 每次现算），所以这里整体替换：
+   * 手环不再有 PR 的动作会被清掉，与手机保持一致。返回写入条数；解析失败返回 -1。
+   *
+   * 注意：消息是从 icClient 的 `onEvent('message', ...)` 到达的 ——
+   * `interconnect-client.js` 里还有一条 `onMessage` 回调分支，但页面初始化时没传 `onMessage`，
+   * 那条**永远是死分支**，不要往那里加逻辑。
+   */
+  _applyPrSync: function(raw) {
+    var msg = null
+    try { msg = JSON.parse(raw) } catch (e) { msg = null }
+    if (!msg || msg.type !== 'pr-sync' || !msg.prs || typeof msg.prs !== 'object') return -1
+    var prs = {}
+    var keys = Object.keys(msg.prs)
+    for (var i = 0; i < keys.length; i++) {
+      var v = msg.prs[keys[i]]
+      if (typeof v === 'number' && isFinite(v) && v > 0) prs[keys[i]] = v
+    }
+    this.int_prs = prs
+    this._updateExDisplay()   // 立刻刷新屏0 那行 PR
+    // 落盘：与训练记录同一个文件、全量覆盖写，所以必须把 records 一起带上
+    fileIO.saveData({ records: this.int_records, prs: this.int_prs })
+    return keys.length
   },
 
   _dbgInit: function() {
@@ -401,10 +445,13 @@ export default {
 
   _loadAndRefresh: function() {
     var self = this
-    fileIO.readRecords(function(records) {
-      self.int_records = records || {}
+    fileIO.readData(function(state) {
+      self.int_records = (state && state.records) || {}
+      // PR 表由手机下发，本地只负责存下来并在屏0 显示（老文件没有该字段 → 空表 → 下次同步全量补齐）
+      self.int_prs = (state && state.prs) || {}
       self._buildLog()
       self._buildToday()
+      self._updateExDisplay()
     })
   },
 
@@ -467,10 +514,19 @@ export default {
 
   _updateExDisplay: function() {
     var len = this.int_exNames.length
-    if (len === 0) { this.exCurrent = ''; this.exAbove = ''; this.exBelow = ''; return }
+    if (len === 0) { this.exCurrent = ''; this.exAbove = ''; this.exBelow = ''; this.prText = ''; return }
     this.exCurrent = this.int_exNames[this.int_exIdx]
     this.exAbove = this.int_exNames[(this.int_exIdx - 1 + len) % len]
     this.exBelow = this.int_exNames[(this.int_exIdx + 1) % len]
+    this.prText = this._prLabel(this.exCurrent)
+  },
+
+  /** 当前动作的 PR 参考文案；没有数据就返回空串（模板里 if 会把整行隐藏） */
+  _prLabel: function(exName) {
+    if (!exName || !this.int_prs) return ''
+    var v = this.int_prs[exName]
+    if (typeof v !== 'number' || !isFinite(v) || v <= 0) return ''
+    return 'PR ' + (Math.round(v * 10) / 10) + 'kg'
   },
 
   // 顶部动作区统一触摸：按起点 X 判断 左半=一级(部位) / 右半=二级(动作)
@@ -646,7 +702,7 @@ export default {
         }
       }
     }
-    fileIO.saveRecords(self.int_records, function(success) {
+    fileIO.saveData({ records: self.int_records, prs: self.int_prs }, function(success) {
       if (success) {
         self.planItems = []; self.planCount = 0; self.planItems = self.planItems.slice()
         self.editingIdx = -1
