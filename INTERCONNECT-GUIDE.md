@@ -301,7 +301,7 @@ F:\DeepseekHarness\miband\phone-app\gradlew.bat -p F:\DeepseekHarness\miband\pho
 - 用户自己有想法优先
 
 - 手环端：改动已收敛（历史长按发送即可）；新增数据类型只需扩展 `_sendDayRecords` 的 payload
-- 手机端：✅ 增量分片落盘（RecordStore，SAF+JSONL 30行/文件+date去重+启动/回前台全目录重扫）；✅ v2.0 起 UI 迁移 Jetpack Compose（浅色简洁风）+ Vico 图表；✅ v2.1 数据展示升级：渐变英雄卡 + 周/月/全部切换 + 训练热力图（近5周）+ 容量趋势渐变面积图（含环比徽章）+ 肌群分布条形图（MuscleMap 动作→肌群关键词映射）+ 训练日记升级（星期/PR徽章/每组次数芯片/PR=e1RM或最大重量破纪录）；✅ v2.2 存储分片化（records-NNNN.jsonl，30行/文件自动轮换）+ 展示页默认读文件夹全部文件 + 诊断页「重扫目录」按钮；✅ **v3.0 四屏 UI 定稿（与 ui-prototype 一致）**：底部 4 文字 tab（数据/肌群/日记/诊断）+ 暖橙 #E06040 主题 + 白卡圆角区块 + Canvas 自绘图表（数据页=可展开热力图+当天内容+周/月/全部总量柱状图，肌群页=周/月动作容量分组柱状图+肌群占比饼图+均衡建议，日记页=PR徽章+橙色容量汇总，诊断页=P/S 码日志+5 按钮）+ logo/1.png 作为启动图标
+- 手机端：✅ 增量分片落盘（RecordStore，SAF+JSONL 30行/文件+date去重+启动/回前台全目录重扫）；✅ v2.0 起 UI 迁移 Jetpack Compose（浅色简洁风）+ Vico 图表；✅ v2.1 数据展示升级：渐变英雄卡 + 周/月/全部切换 + 训练热力图（近5周）+ 容量趋势渐变面积图（含环比徽章）+ 肌群分布条形图（MuscleMap 动作→肌群关键词映射）+ 训练日记升级（星期/PR徽章/每组次数芯片/PR=e1RM或最大重量破纪录）；✅ v2.2 存储分片化（records-NNNN.jsonl，30行/文件自动轮换）+ 展示页默认读文件夹全部文件 + 诊断页「重扫目录」按钮；✅ **v3.0 四屏 UI 定稿（与 ui-prototype 一致）**：底部 4 文字 tab（数据/肌群/日记/诊断）+ 暖橙 #E06040 主题 + 白卡圆角区块 + Canvas 自绘图表（数据页=可展开热力图+当天内容+周/月/全部总量柱状图，肌群页=周/月动作容量分组柱状图+肌群占比饼图+均衡建议，日记页=PR徽章+橙色容量汇总，诊断页=P/S 码日志+5 按钮）+ `logo/1.png` 作为启动图标（**该旧 logo 已移除**：仓库顶部与 README 现统一用与 App 一致的 `logo/app-icon.png`）
 - **纯函数统计引擎**：`data/StatsEngine.kt`（周期统计/环比/周容量/热力图/连续周/PR检测，日期全部用 ISO 字符串比较，不用 java.time 避免 API 26 限制）；`data/MuscleMap.kt`（中文动作名关键词→肌群）
 - **版本组合锁定（不要乱升）**：Kotlin 2.1.21 + Compose BOM 2025.05.01 + Vico 2.1.4 + AGP 8.2.2 + Gradle 8.2；Vico 更新版本要求更新的 Kotlin/AGP，升级需整套一起评估
 - 参考开源范例：Searchstars/Hyperbilibili（band9 分支）+ HyperbiliInterconnect（手机端）

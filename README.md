@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo/1.png" width="120" alt="HyperGym Logo">
+  <img src="logo/app-icon.png" width="120" alt="HyperGym App Icon">
 </p>
 
 <h1 align="center">HyperGym</h1>
@@ -361,7 +361,7 @@ hypergym/
 ├── ui-prototype/                    # Web UI 原型（暖橙白卡风格）
 ├── ui-refs/                         # 参考设计图
 ├── screenshots/                     # 本 README 用到的界面截图（手机端 = 模拟器实拍，手环端 = 按 .ux 还原）
-├── logo/                            # App 图标（SVG + Illustrator 源稿）
+├── logo/                            # App 图标：app-icon.png（README/仓库用）+ SVG 源稿 + AI 源文件
 ├── SIGNING.md                       # ⚠️ 签名硬约束，动手前必读
 ├── INTERCONNECT-GUIDE.md            # 手环 ↔ 手机 互联协议与调试码对照
 ├── REVIEW.md                        # 代码审查报告（35 项，含证据与状态）
@@ -661,7 +661,15 @@ node tools/sync-band-exercises.js --check    # 只校验是否同步，漂移则
 
 ## 应用图标
 
-图标由 `logo/` 下的 SVG 生成，**分两层**（Android 自适应图标结构）：
+<p align="center">
+  <img src="logo/app-icon.png" width="128" alt="HyperGym App Icon">
+</p>
+
+上面这张就是**手机上的 App 图标**（也是本 README 顶部的项目图标）——
+由 `logo/app-icon.png` 提供，源码母版是 `logo/front.svg`（哑铃）+ `logo/back.svg`（渐变），
+1024×1024 的渲染母版在 `logo/icon.ai` 里。
+
+图标**分两层**（Android 自适应图标结构）：
 
 | 层 | 内容 | 来源 |
 |---|---|---|
@@ -672,7 +680,8 @@ node tools/sync-band-exercises.js --check    # 只校验是否同步，漂移则
 若把纹理挪到透明的前景层，会因为「无底色可混合」而露出脏斑。两层叠加后与原始 SVG 完全一致。
 
 **尺寸与安全区**：自适应图标只显示中心 **72/108**，绝对安全区是 **66dp 的圆（占画布 61.1%）**。
-实测本图标哑铃占画布宽 **49.1%**，完整落在安全圆内，因此任何遮罩形状都不会裁到图形。
+实测本图标哑铃占画布宽 **49.1%**，完整落在安全圆内，因此任何遮罩形状都不会裁到图形 ——
+圆形的**手环图标**（`miband10pro-trainer/src/common/icon.png`）与手机端的方/圆遮罩用的是同一幅作品。
 
 > 未采用 `front2.svg`：它的哑铃占宽 **72.7%**，超出 66.7% 的可见区，圆形遮罩会切掉最外侧的配重片。
 > 两者是同一幅作品的等比例放大（长宽比 2.04 : 2.03），所以缩到安全尺寸后结果与现用的一致。
@@ -738,6 +747,11 @@ mipmap-anydpi-v26/
 肌群页的配色来源、传输页「清除」的真实语义、构建前置条件与 `assembleRelease` 的自增行为。
 `screenshots/` 里 **8 张手机端截图**全部用 3.1.18 的包在模拟器上重拍（新增 PR 卡片图），
 **6 张手环端示意图**按 `.ux` 源码逐项对齐重绘，另新增配色总览图 `palette.png`。
+
+**仓库图标统一**：仓库顶部与 README 原本用的 `logo/1.png` 是早期那枚黑色人形 logo，
+与 App 里实际使用的图标（v3.1.14 起：橙底渐变 + 白色哑铃）不一致。
+现改为 `logo/app-icon.png`（由 1024 母版渲染的 512² 圆角图标，四角透明），
+与手机 App 图标、手环端圆形图标同源；旧的 `logo/1.png` 已删除。
 
 ### 手机端 v3.1.17（versionCode 24） ｜ 手环端 v1.0.70（versionCode 70）
 
