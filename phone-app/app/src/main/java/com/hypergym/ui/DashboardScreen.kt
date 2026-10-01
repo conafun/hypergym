@@ -308,17 +308,29 @@ private fun WeekStrip(
     selected: String,
     onSelect: (String) -> Unit,
 ) {
+    // 缩起状态 = 今天所在的这一周（周一→周日），列排布与展开整月完全一致；
+    // 今天之后的格子沿用月历口径：灰块占位、不写日期、不可点。
+    val monday = remember(today) { DateUtils.offset(today, -DateUtils.weekdayIndex(today)) }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        (6 downTo 0).forEach { i ->
-            val d = DateUtils.offset(today, -i)
+        (0..6).forEach { i ->
+            val d = DateUtils.offset(monday, i)
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                HeatCell(
-                    level = heatLevel[d],
-                    label = DateUtils.dayLabel(d),
-                    isToday = d == today,
-                    isSelected = d == selected,
-                    onClick = { onSelect(d) },
-                )
+                if (d > today) {
+                    Box(
+                        Modifier
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(RestGray.copy(alpha = 0.4f))
+                    )
+                } else {
+                    HeatCell(
+                        level = heatLevel[d],
+                        label = DateUtils.dayLabel(d),
+                        isToday = d == today,
+                        isSelected = d == selected,
+                        onClick = { onSelect(d) },
+                    )
+                }
                 Text(
                     DateUtils.weekdayLabel(d).removePrefix("周"),
                     fontSize = 10.sp,
@@ -549,6 +561,8 @@ private fun PrCard(prBest: Map<String, Double>) {
                                     color = HColors.Primary,
                                     textAlign = TextAlign.End,
                                 )
+                                // PR 与「实际用范围」是两类数值，留出固定间隙，避免长范围（如 47.5–55.0kg）时贴在一起
+                                Spacer(Modifier.width(10.dp))
                                 Text(
                                     useRangeLabel(weight, pctLo, pctHi),
                                     Modifier.width(86.dp),
