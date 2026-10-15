@@ -125,7 +125,6 @@
           </div>
         </div>
         <div class="log-foot" if="{{!logEmpty}}">
-          <text class="log-foot-text">本月{{logDays}}天 · 总{{logTotalVol}}kg</text>
           <text class="log-send-hint">长按日期可发送</text>
         </div>
       </div>
@@ -246,8 +245,7 @@
   .log-sep-text { font-size: 10px; color: #333333; }
   .log-empty { width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
   .log-empty-text { font-size: 22px; color: #444444; font-weight: 600; text-align: center; margin-top: 160px; }
-  .log-foot { width: 336px; height: 44px; display: flex; flex-direction: row; align-items: center; justify-content: space-between; background-color: #111111; padding: 0 14px; }
-  .log-foot-text { font-size: 20px; color: #30d158; font-weight: 600; }
+  .log-foot { width: 336px; height: 44px; display: flex; flex-direction: row; align-items: center; justify-content: center; background-color: #111111; padding: 0 14px; }
   .log-send-hint { font-size: 16px; color: #555555; font-weight: 500; }
 
   /* ===== 屏4 联调诊断 ===== */
@@ -299,8 +297,6 @@ export default {
     countReps: 10,
     logItems: [],
     logEmpty: true,
-    logDays: 0,
-    logTotalVol: 0,
     recTime: '',
     todayEmpty: true,
     todayItems: [],
@@ -378,6 +374,9 @@ export default {
     this._updateExDisplay()   // 立刻刷新屏0 那行 PR
     // 落盘：与训练记录同一个文件、全量覆盖写，所以必须把 records 一起带上
     fileIO.saveData({ records: this.int_records, prs: this.int_prs })
+    // saveData 会顺手把超过 7 次的旧记录裁掉（就地改 int_records），
+    // 所以这里重建一次屏3 列表，免得刚被裁掉的那天还留在屏幕上
+    this._buildLog()
     return keys.length
   },
 
@@ -825,13 +824,18 @@ export default {
     })
   },
 
+  /**
+   * 屏3 历史列表。
+   *
+   * 只渲染 `int_records` 里的全部内容 —— 而它已经被 `file-io` 裁到**最近 7 次训练**
+   * （见 `file-io.js` 的 `pruneOldSessions`），所以这里的项数是**常数级**（约 47 条），
+   * 不再随使用时间增长。底部的「本月 X 天 · 总 Xkg」已去掉：那个口径在裁剪后会失真，
+   * 完整统计在手机端看。
+   */
   _buildLog: function() {
     var recs = this.int_records
     var dates = Object.keys(recs).sort(function(a, b) { return b.localeCompare(a) })
     var items = []
-    var now = new Date()
-    var mKey = now.getFullYear() + '-' + pad2(now.getMonth() + 1)
-    var mDays = 0, mVol = 0
     for (var di = 0; di < dates.length; di++) {
       var d = dates[di]
       var dayRecs = recs[d]
@@ -844,8 +848,6 @@ export default {
         for (var si = 0; si < r.sets.length; si++) { tv += r.sets[si].volume || 0 }
         dayVol += tv
       }
-      var isM = d.indexOf(mKey) === 0
-      if (isM) { mDays++; mVol += dayVol }
       items.push({ cls: 'log-row-date', lc: 'log-date-text', rc: 'log-date-val', left: d, right: dayVol + 'kg' })
       for (var ei2 = 0; ei2 < dayRecs.length; ei2++) {
         var r2 = dayRecs[ei2]
@@ -859,8 +861,6 @@ export default {
     }
     this.logItems = items
     this.logEmpty = items.length === 0
-    this.logDays = mDays
-    this.logTotalVol = mVol
   },
 }
 </script>

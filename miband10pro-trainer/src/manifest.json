@@ -1,8 +1,8 @@
 {
   "package": "com.hypergym",
   "name": "HyperGym",
-  "versionName": "1.0.70",
-  "versionCode": 70,
+  "versionName": "1.0.71",
+  "versionCode": 71,
   "minPlatformVersion": 1200,
   "icon": "/common/icon.png",
   "deviceTypeList": ["watch"],

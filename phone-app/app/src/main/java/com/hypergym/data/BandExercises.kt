@@ -9,7 +9,7 @@ package com.hypergym.data
  * 手环端动作表是动作分类的唯一权威来源；手机端只做「按名字精确查表 + 少量历史兜底」，
  * 详见 [MuscleMap]。
  *
- * 本次生成：28 个动作，分组 胸/肩/背/腿/臂/核心
+ * 本次生成：34 个动作，分组 胸/肩/背/腿/臂/核心
  */
 internal object BandExercises {
 
@@ -31,8 +31,14 @@ internal object BandExercises {
 
     /** 手环 DEFAULT_EXERCISES：动作名 → 部位。手机端分类的权威依据 */
     val groupByName: Map<String, String> = mapOf(
-        "哑铃" to "肩",
-        "侧平举" to "肩",
+        "哑铃划船" to "背",
+        "哑铃飞鸟" to "胸",
+        "哑铃推举" to "肩",
+        "哑铃平举" to "肩",
+        "哑铃弯举" to "臂",
+        "保加利亚蹲" to "腿",
+        "哑铃提踵" to "腿",
+        "绳索下压" to "背",
         "卷腹" to "核心",
         "卧推" to "胸",
         "水平胸推" to "胸",
@@ -53,7 +59,7 @@ internal object BandExercises {
         "罗马椅" to "核心",
         "腿弯曲" to "腿",
         "轨道划船" to "背",
-        "面拉" to "肩",
+        "绳索面拉" to "背",
         "引体向上" to "背",
         "双杠臂屈伸" to "胸",
         "实力推" to "肩",

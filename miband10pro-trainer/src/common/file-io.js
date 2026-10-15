@@ -3,6 +3,33 @@ import file from '@system.file'
 var STORAGE_PATH = 'internal://files/training_data.json'
 
 /**
+ * 手环上**只保留最近 N 次训练记录**（一次训练 = 一个日期）。
+ *
+ * 为什么：手环上这份数据只是「最近的查看窗口」，完整历史都在手机里
+ * （手机按 date 主键保存全部记录、从不裁剪）。留着全部历史会让两件事随使用次数线性变慢：
+ *  1. 启动时 `_buildLog()` 把全部历史摊平成渲染项 —— 屏3 的 `for` 会把每一行都实例化成节点
+ *     （一年 ≈ 2400 项 ≈ 7000 个节点，手环上实打实地卡）；
+ *  2. 每次保存都要把整份 JSON 序列化 + 覆写（一年 ≈ 285 KB，每次点「结束」都写一遍）。
+ * 裁到 7 次之后，文件约 6 KB、渲染项约 47 条，**启动与保存都变成常数级**。
+ *
+ * 裁剪规则：日期升序排，超出 N 个的最老日期整条删掉（就地改传进来的对象，
+ * 调用方手里的 `int_records` 是同一个引用，界面自然跟着更新）。
+ * **不做「已发送」判断** —— 用户每次练完都会及时与手机互传，超期的早就传走了。
+ */
+var KEEP_SESSIONS = 7
+
+function pruneOldSessions(records) {
+  var dates = Object.keys(records)
+  if (dates.length <= KEEP_SESSIONS) return 0
+  dates.sort()
+  var drop = dates.length - KEEP_SESSIONS
+  for (var i = 0; i < drop; i++) delete records[dates[i]]
+  console.log('[file-io] 已裁剪 ' + drop + ' 次旧记录（保留最近 ' + KEEP_SESSIONS + ' 次）：' +
+    dates.slice(0, drop).join(', '))
+  return drop
+}
+
+/**
  * 「文件读到了但解析不了」的保护位。
  *
  * 背景：保存是**全量覆盖写**（writeText 覆盖整个文件）。原来的实现在解析失败时
@@ -55,8 +82,11 @@ function readData(callback) {
         return
       }
       cachedPrs = normalizePrs(parsed && parsed.prs)
+      var records = (parsed && parsed.records) || {}
+      // 启动就裁一次：上次运行攒下的旧记录不必等到下次保存才清
+      pruneOldSessions(records)
       callback({
-        records: (parsed && parsed.records) || {},
+        records: records,
         prs: cachedPrs
       })
     },
@@ -83,6 +113,8 @@ function saveData(state, callback) {
     return
   }
   var records = (state && state.records) || {}
+  // 每次保存顺手裁一次（就地修改，调用方的 int_records 同步变短）
+  pruneOldSessions(records)
   // 调用方没带 prs 时用内存里的兜底，避免只关心记录的保存点把 PR 表抹掉
   var prs = state && state.prs ? normalizePrs(state.prs) : (cachedPrs || {})
   cachedPrs = prs
